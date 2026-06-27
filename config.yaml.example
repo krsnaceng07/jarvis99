@@ -18,3 +18,12 @@ redis:
 
 vault:
   encryption_key_path: "secrets/master.key"
+
+memory:
+  disable_auto_memory: false
+  retrieval:
+    tier1_limit: 20
+    tier2_limit: 20
+    tier3_limit: 30
+    tier4_limit: 10
+    semantic_top_k: 15

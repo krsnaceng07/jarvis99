@@ -53,6 +53,23 @@ class EmbeddingConfig(BaseModel):
     timeout: float = Field(default=10.0)  # Timeout in seconds
 
 
+class MemoryRetrievalConfig(BaseModel):
+    """Configuration mapping for personal memory retrieval limits and budgets."""
+
+    tier1_limit: int = Field(default=20)
+    tier2_limit: int = Field(default=20)
+    tier3_limit: int = Field(default=30)
+    tier4_limit: int = Field(default=10)
+    semantic_top_k: int = Field(default=15)
+
+
+class MemoryConfig(BaseModel):
+    """Configuration mapping for personal memory settings."""
+
+    disable_auto_memory: bool = Field(default=False)
+    retrieval: MemoryRetrievalConfig = Field(default_factory=MemoryRetrievalConfig)
+
+
 class Settings(BaseSettings):
     """Unified Settings container validating configurations and environment overrides."""
 
@@ -61,6 +78,7 @@ class Settings(BaseSettings):
     redis: RedisConfig = Field(default_factory=RedisConfig)
     vault: VaultConfig = Field(default_factory=VaultConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
+    memory: MemoryConfig = Field(default_factory=MemoryConfig)
 
     model_config = SettingsConfigDict(
         env_prefix="JARVIS_",
