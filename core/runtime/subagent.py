@@ -5,7 +5,7 @@ Manages subagent lifecycle states, concurrency boundaries, heartbeats, and watch
 
 import asyncio
 import time
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 from uuid import UUID, uuid4
 
 from core.exceptions import JarvisAgentError
@@ -33,7 +33,9 @@ class SubagentManager:
         max_concurrent: int = 5,
         max_lifespan: float = 900.0,
         heartbeat_timeout: float = 180.0,
+        heartbeat_interval: float = 30.0,
         check_interval: float = 1.0,
+        driver: Optional[Any] = None,
     ) -> None:
         """Initialize SubagentManager.
 
@@ -41,12 +43,16 @@ class SubagentManager:
             max_concurrent: Maximum active subagent instances allowed.
             max_lifespan: Maximum lifespan allowed in seconds per subagent (default 15 minutes).
             heartbeat_timeout: Heartbeat timeout in seconds before termination.
+            heartbeat_interval: Heartbeat report frequency interval in seconds.
             check_interval: Watchdog loop sleep interval in seconds.
+            driver: Optional IContainerDriver reference.
         """
         self.max_concurrent = max_concurrent
         self.max_lifespan = max_lifespan
         self.heartbeat_timeout = heartbeat_timeout
+        self.heartbeat_interval = heartbeat_interval
         self.check_interval = check_interval
+        self.driver = driver
         self.active_subagents: Dict[UUID, SubagentInstance] = {}
         self._lock = asyncio.Lock()
         self._watchdog_task: Optional[asyncio.Task[None]] = None
@@ -105,6 +111,15 @@ class SubagentManager:
             )
             instance.state = SubagentState.INITIALIZE
 
+            if self.driver:
+                try:
+                    await self.driver.spawn_container(subagent_id, task_id)
+                except Exception as err:
+                    raise JarvisAgentError(
+                        code="AGENT_004",
+                        message=f"Container driver failed to spawn environment: {str(err)}",
+                    )
+
             AgentStateTransitionManager.validate_subagent_transition(
                 instance.state, SubagentState.READY
             )
@@ -160,6 +175,11 @@ class SubagentManager:
             instance = self.active_subagents.get(subagent_id)
             if instance:
                 instance.token.cancel()
+                if self.driver:
+                    try:
+                        await self.driver.terminate_container(subagent_id)
+                    except Exception:
+                        pass
                 instance.state = SubagentState.DESTROYED
                 self.active_subagents.pop(subagent_id, None)
 

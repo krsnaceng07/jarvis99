@@ -78,3 +78,43 @@ class CancellationToken:
         """Await resume if execution has been paused."""
         if self._paused and not self._cancelled:
             await self._pause_event.wait()
+
+
+class SwarmTask(BaseModel):
+    """Pydantic model representing a task assigned to the swarm."""
+
+    task_id: UUID
+    goal: str
+    priority: str = "NORMAL"  # "CRITICAL", "HIGH", "NORMAL", "LOW", "SYSTEM"
+    capabilities: list[str] = Field(default_factory=list)
+    timeout: float = 900.0
+    retry: int = 0
+    dependencies: list[UUID] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    status: str = "Pending"  # Pending, Running, Waiting, Completed, Failed, Cancelled
+
+
+class SwarmTelemetry(BaseModel):
+    """Resource metrics and active status parameters for a single agent."""
+
+    agent_id: UUID
+    cpu_usage: float
+    memory_usage: float
+    uptime_seconds: float
+    current_task: Optional[str] = None
+    heartbeat_ok: bool = True
+    status: str
+
+
+class SwarmSnapshot(BaseModel):
+    """Global swarm state snapshot for monitoring dashboard and audits."""
+
+    running_agents: int
+    queued_tasks: int
+    completed_tasks: int
+    failed_tasks: int
+    message_rate: float
+    cpu_usage: float
+    memory_usage: float
+    cluster_status: str = "HEALTHY"  # HEALTHY | DEGRADED | CRITICAL
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

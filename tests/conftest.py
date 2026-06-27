@@ -10,6 +10,9 @@ from typing import Generator
 import pytest
 
 from core.config import Settings
+from core.kernel import bootstrap_sdk_namespaces
+
+bootstrap_sdk_namespaces()
 
 
 @pytest.fixture

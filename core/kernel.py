@@ -5,12 +5,49 @@ event bus initialization, and core lifecycle sequences.
 """
 
 import logging
+import sys
+from types import ModuleType
 from typing import Optional
 
 from core.container import DependencyContainer
 from core.exceptions import JarvisSystemError
 from core.interfaces import EventBusInterface, InterAgentMessage, LifecycleInterface
 from core.lifecycle import LifecycleManager
+
+
+def bootstrap_sdk_namespaces() -> None:
+    """Dynamically register the jarvis.sdk.* namespaces to satisfy compliance imports without physical folders."""
+    if "jarvis" in sys.modules:
+        return
+
+    jarvis_mod = ModuleType("jarvis")
+    jarvis_sdk_mod = ModuleType("jarvis.sdk")
+    jarvis_sdk_skills_mod = ModuleType("jarvis.sdk.skills")
+    jarvis_sdk_browser_mod = ModuleType("jarvis.sdk.browser")
+
+    # Link attributes so module attributes are resolved during import lookup
+    jarvis_mod.sdk = jarvis_sdk_mod  # type: ignore[attr-defined]
+    jarvis_sdk_mod.skills = jarvis_sdk_skills_mod  # type: ignore[attr-defined]
+    jarvis_sdk_mod.browser = jarvis_sdk_browser_mod  # type: ignore[attr-defined]
+
+    # Bind base definitions dynamically
+    from core.tools.base import JarvisSkill
+    jarvis_sdk_skills_mod.JarvisSkill = JarvisSkill  # type: ignore[attr-defined]
+
+    # Stubs/Refs to client API classes
+    try:
+        from core.browser.client import JarvisBrowser
+        jarvis_sdk_browser_mod.JarvisBrowser = JarvisBrowser  # type: ignore[attr-defined]
+    except ImportError:
+        pass
+
+    sys.modules["jarvis"] = jarvis_mod
+    sys.modules["jarvis.sdk"] = jarvis_sdk_mod
+    sys.modules["jarvis.sdk.skills"] = jarvis_sdk_skills_mod
+    sys.modules["jarvis.sdk.browser"] = jarvis_sdk_browser_mod
+
+
+bootstrap_sdk_namespaces()
 
 logger = logging.getLogger("jarvis.core.kernel")
 
