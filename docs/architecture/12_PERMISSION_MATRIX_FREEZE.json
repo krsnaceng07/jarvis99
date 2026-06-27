@@ -1,0 +1,19 @@
+{
+  "terminal.execute": "confirm",
+  "browser.download": "confirm",
+  "browser.navigate": "allow",
+  "browser.js_inject": "confirm",
+  "filesystem.delete": "deny",
+  "filesystem.write_workspace": "allow",
+  "filesystem.write_system": "deny",
+  "database.migration": "confirm",
+  "database.write": "allow",
+  "database.drop": "deny",
+  "api.external_post": "confirm",
+  "sandbox.disable": "deny",
+  "skill.install": "confirm",
+  "pc.mouse_click": "confirm",
+  "pc.keyboard_type": "confirm",
+  "pc.clipboard_write": "allow",
+  "pc.clipboard_read": "allow"
+}
