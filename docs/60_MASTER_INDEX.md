@@ -95,6 +95,8 @@ Applies to all files written under the `docs/` folder in Phase 0.
 - [71_SHUTDOWN_SEQUENCE.md](file:///e:/jarvis/docs/71_SHUTDOWN_SEQUENCE.md) – Poweroff steps.
 - [72_RECOVERY_MODE.md](file:///e:/jarvis/docs/72_RECOVERY_MODE.md) – Restore systems.
 - [73_HEALTH_MONITORING.md](file:///e:/jarvis/docs/73_HEALTH_MONITORING.md) – Ping monitors.
+- [74_PHASE_1_12_MASTER_SPECIFICATION.md](file:///e:/jarvis/docs/74_PHASE_1_12_MASTER_SPECIFICATION.md) – Consolidated Phase 1–12 master spec. **STATUS: FROZEN**
+- [75_PHASE_13_MASTER_SPECIFICATION.md](file:///e:/jarvis/docs/75_PHASE_13_MASTER_SPECIFICATION.md) – Phase 13 Tool Ecosystem & Workflow Automation spec. **STATUS: FROZEN**
 
 ## Responsibilities
 - **Documentation Agent:** Manages links updates in this index after compiling documentation files.

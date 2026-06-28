@@ -32,11 +32,13 @@ def bootstrap_sdk_namespaces() -> None:
 
     # Bind base definitions dynamically
     from core.tools.base import JarvisSkill
+
     jarvis_sdk_skills_mod.JarvisSkill = JarvisSkill  # type: ignore[attr-defined]
 
     # Stubs/Refs to client API classes
     try:
         from core.browser.client import JarvisBrowser
+
         jarvis_sdk_browser_mod.JarvisBrowser = JarvisBrowser  # type: ignore[attr-defined]
     except ImportError:
         pass
@@ -124,6 +126,177 @@ class Kernel(LifecycleInterface):
                     code="SYSTEM_001",
                     message="Event Bus initialization failed during boot.",
                 )
+
+            # Register Event Bus Singleton
+            from core.events.memory_bus import MemoryEventBus
+
+            event_bus = MemoryEventBus()
+            await event_bus.initialize()
+            await event_bus.start()
+            self.container.register_singleton(EventBusInterface, event_bus)
+
+            # Load and Register Settings Singleton
+            from core.config import Settings
+
+            settings = Settings.load_settings()
+            self.container.register_singleton(Settings, settings)
+
+            # Register Orchestration & Tool components
+            from core.reasoning.orchestrator import ExecutionOrchestrator
+            from core.tools.audit import ImmutableAuditLogger
+            from core.tools.dependency_resolver import DependencyResolver
+            from core.tools.metrics_collector import ExecutionMetricsCollector
+            from core.tools.registry import ToolRegistry
+            from core.tools.result_aggregator import WaveResultAggregator
+            from core.tools.retry_manager import RetryManager
+            from core.tools.runtime import ToolRuntime
+            from core.tools.sandbox import ISandbox, LocalSubprocessSandbox
+            from core.tools.security import PermissionGatekeeper
+            from core.tools.wave_executor import WaveExecutor
+
+            # Resolve skill directory
+            skills_dir = getattr(settings, "SKILLS_DIR", "skills")
+            registry = ToolRegistry(skills_dir=skills_dir)
+            sandbox = LocalSubprocessSandbox()
+            gatekeeper = PermissionGatekeeper(event_bus=event_bus)
+            audit_logger = ImmutableAuditLogger()
+
+            runtime = ToolRuntime(
+                registry=registry,
+                sandbox=sandbox,
+                gatekeeper=gatekeeper,
+                event_bus=event_bus,
+                audit_logger=audit_logger,
+            )
+
+            resolver = DependencyResolver()
+            aggregator = WaveResultAggregator()
+            retry_mgr = RetryManager()
+            metrics_coll = ExecutionMetricsCollector()
+
+            wave_exec = WaveExecutor(
+                resolver=resolver,
+                aggregator=aggregator,
+                retry_manager=retry_mgr,
+                metrics_collector=metrics_coll,
+                concurrency_limit=5,
+            )
+
+            orchestrator = ExecutionOrchestrator(
+                tool_runtime=runtime,
+                wave_executor=wave_exec,
+                metrics_collector=metrics_coll,
+                event_bus=event_bus,
+                settings=settings,
+            )
+
+            # Register Reasoning execution components
+            from core.reasoning.cost import CostGovernor
+            from core.reasoning.credentials import CredentialManager
+            from core.reasoning.engine import ReasoningExecutionEngine
+            from core.reasoning.plan_version_manager import PlanVersionManager
+            from core.reasoning.planning_service import PlanningService
+            from core.reasoning.prompt import PromptBuilder
+            from core.reasoning.provider import (
+                ClaudeProvider,
+                LlamaProvider,
+                ProviderConfig,
+            )
+            from core.reasoning.rate_limiter import ProviderRateLimiter
+            from core.reasoning.reflection import ReflectionEngine
+            from core.reasoning.registry import ModelCapabilityRegistry
+            from core.reasoning.router import ModelRouter
+            from core.reasoning.telemetry import ReasoningTelemetry
+            from core.reasoning.transport import UrllibTransport
+
+            transport = UrllibTransport()
+            cred_manager = CredentialManager()
+            capability_registry = ModelCapabilityRegistry()
+            rate_limiter = ProviderRateLimiter()
+            telemetry = ReasoningTelemetry()
+            cost_governor = CostGovernor(settings=settings)
+
+            llama_cfg = ProviderConfig(
+                provider_name="LlamaLocal",
+                model_name="llama-3.1-8b",
+                base_url="http://localhost:8000/v1",
+            )
+            claude_cfg = ProviderConfig(
+                provider_name="Claude",
+                model_name="claude-3-5-sonnet",
+                base_url="https://api.anthropic.com/v1",
+            )
+            llama_prov = LlamaProvider(llama_cfg, transport, cred_manager)
+            claude_prov = ClaudeProvider(claude_cfg, transport, cred_manager)
+
+            router = ModelRouter(
+                providers=[llama_prov, claude_prov],
+                registry=capability_registry,
+                rate_limiter=rate_limiter,
+                telemetry=telemetry,
+                cost_gov=cost_governor,
+                settings=settings,
+            )
+
+            prompt_builder = PromptBuilder(settings)
+            reflection_engine = ReflectionEngine(settings)
+
+            planning_service = PlanningService(
+                router=router,
+                prompt_builder=prompt_builder,
+                cost_governor=cost_governor,
+            )
+            version_manager = PlanVersionManager()
+
+            execution_engine = ReasoningExecutionEngine(
+                orchestrator=orchestrator,
+                reflection_engine=reflection_engine,
+                router=router,
+                prompt_builder=prompt_builder,
+                cost_governor=cost_governor,
+                settings=settings,
+                planning_service=planning_service,
+                version_manager=version_manager,
+                event_bus=event_bus,
+            )
+
+            # Register singletons
+            self.container.register_singleton(ToolRegistry, registry)
+            self.container.register_singleton(PermissionGatekeeper, gatekeeper)
+            self.container.register_singleton(ISandbox, sandbox)
+            self.container.register_singleton(ToolRuntime, runtime)
+            self.container.register_singleton(DependencyResolver, resolver)
+            self.container.register_singleton(WaveResultAggregator, aggregator)
+            self.container.register_singleton(RetryManager, retry_mgr)
+            self.container.register_singleton(ExecutionMetricsCollector, metrics_coll)
+            self.container.register_singleton(WaveExecutor, wave_exec)
+            self.container.register_singleton(ExecutionOrchestrator, orchestrator)
+            self.container.register_singleton(PlanningService, planning_service)
+            self.container.register_singleton(PlanVersionManager, version_manager)
+            self.container.register_singleton(
+                ReasoningExecutionEngine, execution_engine
+            )
+
+            # Phase 13 — Workflow Automation services
+            from core.tools.compiler import WorkflowCompiler
+            from core.tools.repository import WorkflowRepository
+            from core.tools.validator import WorkflowValidator
+            from core.tools.workflow_orchestrator import WorkflowOrchestrator
+
+            workflow_validator = WorkflowValidator(registry=registry)
+            workflow_compiler = WorkflowCompiler()
+            workflow_repository = WorkflowRepository()
+            workflow_orchestrator = WorkflowOrchestrator(
+                orchestrator=orchestrator,
+                event_bus=event_bus,
+            )
+
+            self.container.register_singleton(WorkflowValidator, workflow_validator)
+            self.container.register_singleton(WorkflowCompiler, workflow_compiler)
+            self.container.register_singleton(WorkflowRepository, workflow_repository)
+            self.container.register_singleton(
+                WorkflowOrchestrator, workflow_orchestrator
+            )
 
             # 3. Add kernel to lifecycle list (or configure dependency tree)
             self.lifecycle_manager.add_service(self)

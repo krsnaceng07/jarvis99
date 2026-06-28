@@ -4,33 +4,13 @@ Defines the base interface for custom skills, execution result DTOs, and Pydanti
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List
-from uuid import UUID
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from core.tools.dto import RetryPolicy, ToolExecutionResult
 
-class ToolExecutionResult(BaseModel):
-    """Pydantic DTO representing the strongly typed output of a tool invocation."""
-
-    stdout: str = Field(default="", description="Captured standard output buffer.")
-    stderr: str = Field(default="", description="Captured standard error buffer.")
-    exit_code: int = Field(
-        default=0, description="Process or function exit status code."
-    )
-    duration: float = Field(
-        default=0.0, description="Total execution duration in seconds."
-    )
-    memory_usage: int = Field(default=0, description="Peak memory consumption in MB.")
-    cpu_usage: float = Field(
-        default=0.0, description="Average CPU core usage fraction."
-    )
-    truncated: bool = Field(
-        default=False, description="Flag indicating if output limits were breached."
-    )
-    audit_id: UUID = Field(
-        description="UUID reference to the immutable audit log entry."
-    )
+__all__ = ["SkillManifest", "JarvisSkill", "ToolExecutionResult"]
 
 
 class SkillManifest(BaseModel):
@@ -71,6 +51,31 @@ class SkillManifest(BaseModel):
     )
     dependencies: List[str] = Field(
         default_factory=list, description="List of config dependency keys required."
+    )
+    timeout: float = Field(default=900.0, description="Execution limit in seconds.")
+    approval_level: str = Field(
+        default="L0", description="Target human approval clearance (L0-L3)."
+    )
+    supports_parallel: bool = Field(
+        default=True, description="Indicates if task can run concurrently."
+    )
+    retry_policy: Optional[RetryPolicy] = Field(
+        default=None, description="Custom fallback retry bounds."
+    )
+    sandbox_image: str = Field(
+        default="python:3.12-slim", description="Whitelisted runtime Docker image."
+    )
+    resource_limit_mb: int = Field(
+        default=512, description="RAM execution limit in MB."
+    )
+    jarvis_version: str = Field(
+        default="1.0",
+        pattern=r"^\d+\.\d+$",
+        description="Minimum JARVIS OS platform version this skill is compatible with.",
+    )
+    capabilities: List[str] = Field(
+        default_factory=list,
+        description="Declarative capability tags (e.g. 'file_io', 'web_search', 'code_exec').",
     )
 
     @field_validator("permissions")
