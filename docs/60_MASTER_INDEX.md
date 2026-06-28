@@ -121,6 +121,14 @@ Applies to all files written under the `docs/` folder in Phase 0.
 ## Future Extension
 - Modifying the index file maps new files created during future phases.
 
+## Canonical Entry Point
+
+All automated coding agents (Cursor, Claude Code, Codex, Gemini CLI, GLM, Zed, etc.) MUST begin every session by reading the repository-root entry point:
+
+- [AGENTS.md](file:///e:/jarvis/AGENTS.md) — canonical agent entry-point (authority ranking, mandatory boot sequence, STOP protocol, implementation lifecycle).
+
+Do **not** load documentation directly without first following the **AGENTS.md Boot Sequence**. AGENTS.md governs how and when each document in this index is consulted, and declares which source wins when two documents conflict.
+
 ## Related Documents
 - [00_PROJECT_CONSTITUTION.md](file:///e:/jarvis/docs/00_PROJECT_CONSTITUTION.md)
 - [53_DOCUMENTATION_TEMPLATE.md](file:///e:/jarvis/docs/53_DOCUMENTATION_TEMPLATE.md)
