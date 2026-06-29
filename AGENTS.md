@@ -31,21 +31,24 @@ When any two sources conflict, resolve in this exact descending order. Higher wi
 
 | Rank | Source | Examples | Mutability |
 |------|--------|----------|------------|
-| 0 | Current approved user instruction | The developer's task directive for THIS session (what to work on) | Cannot override ranks 1–6 |
-| 1 (highest authority) | Project Constitution | `docs/00_PROJECT_CONSTITUTION.md` (15 Pillars) | ADR + human approval only |
-| 2 | Architecture Freeze Docs | `docs/architecture/01–14_*.md` | ADR + human approval only |
-| 3 | Phase Master Specifications | `docs/74_PHASE_1_12_*.md`, `docs/75_PHASE_13_*.md` (STATUS: FROZEN) | Change Request (CR) only |
-| 4 | Policy & Standards Docs | `docs/26–49_*.md` | ADR |
-| 5 | Reference Architecture Docs | `docs/05–24_*.md` | ADR |
-| 6 | Existing Code (frozen phases) | `core/**` for Phases 1–13 | CR if interface change |
-| 7 | This document (AGENTS.md) | navigation + lifecycle | maintainer update |
-| 8 (lowest) | Agent's own judgment | — | never override ranks 0–6 |
+| 1 (highest) | User Decision / Instruction | Current developer mandate; cannot override AGENTS.md constitutional constraints | Cannot override Rank 2–4 |
+| 2 | AGENTS.md (Agent Constitution) | Boot sequence, authority ranking, STOP rules, milestone protocol | ADR + human approval only |
+| 3 | 60_MASTER_INDEX.md | Document locator only | ADR + human approval only |
+| 4 | Phase Master Specifications | `docs/74_PHASE_1_12_*.md`, `docs/75_PHASE_13_*.md`, `docs/76_PHASE_14_*.md` (STATUS: FROZEN) | Change Request (CR) only |
+| 5 | Implementation Plan | Phase 14 Revised v2 Implementation Plan (milestone breakdown) | Awaiting approval |
+| 6 | Implementation (Codebase) | The code inside `api/`, `core/` | Must conform to Spec |
+| 7 (lowest) | Walkthrough (History) | `walkthrough.md` (historical record only) | Non-authoritative history |
 
-**Rank 0 — the task mandate (read carefully):** The current user instruction is the agent's mandate for *what to work on* and its scope of action. It sits at Rank 0 because it triggers all work. But it can **never authorize a violation of ranks 1–6**.
-- User: "Implement Phase 14" → proceed (new scope, no frozen boundary crossed).
-- User: "Modify Phase 13" → STOP. Phase 13 is frozen (rank 3). Emit a Conflict Report (§6) and wait for a Change Request (§8).
+**Rank 1 — the task mandate (read carefully):** The current user instruction is the agent's mandate for *what to work on* and its scope of action. It sits at Rank 1 because it triggers all work. But it can **never authorize a violation of Rank 2–4**.
+- User: "Implement Phase 15" → proceed (new scope, no frozen boundary crossed).
+- User: "Modify Phase 13" → STOP. Phase 13 is frozen (rank 4). Emit a Conflict Report (§6) and wait for a Change Request (§8).
 
-If a user instruction conflicts with a frozen source (ranks 1–6), the agent must not comply silently — it must invoke the STOP protocol (§6). A human may then authorize the change through a CR/ADR; only after such authorization may the agent proceed.
+If a user instruction conflicts with a frozen source (ranks 2–4), the agent must not comply silently — it must invoke the STOP protocol (§6). A human may then authorize the change through a CR/ADR; only after such authorization may the agent proceed.
+
+**Rank 5 — Implementation Plan Authority (execution plan only):**
+Implementation Plans are execution documents. They describe *how* to implement an already approved specification (Rank 4).
+They MUST NOT introduce new architecture, contracts, API shapes, invariants, or lifecycle rules.
+If an Implementation Plan differs from a frozen Specification (Rank 4), the Specification wins. The implementation plan must be amended and approved before coding continues.
 
 **Rule of application:** If you (the agent) believe a lower-ranked source should win, that is a STOP condition. Do not proceed. File a conflict report (§6).
 
@@ -53,24 +56,33 @@ If a user instruction conflicts with a frozen source (ranks 1–6), the agent mu
 
 ## 2. Mandatory Boot Sequence
 
-Before writing or modifying ANY code, an agent MUST complete this read sequence.
+Before writing or modifying ANY code, an agent MUST complete this read sequence and present a summary of understanding.
 This sequence respects the 50% context budget (`docs/10_CONTEXT_LOADING_RULES.md`).
 
 ```
-Step 1 (ALWAYS):  Read this file (AGENTS.md) — you are here.
-Step 2 (ALWAYS):  Read docs/00_PROJECT_CONSTITUTION.md (15 Pillars).
-Step 3 (ALWAYS):  Read docs/74_PHASE_1_12_MASTER_SPECIFICATION.md header + §status only.
-                  (Do NOT read full body unless modifying Phases 1–12.)
-Step 4 (CONTEXTUAL): Read ONLY the spec(s) for the phase you are touching:
-                  - Phase 13 work → docs/75_PHASE_13_MASTER_SPECIFICATION.md
-                  - Phase 14+    → docs/76_PHASE_14_*.md (when it exists)
-Step 5 (CONTEXTUAL): Read ONLY the standards relevant to the file type you touch:
-                  - DB work     → docs/35_DATABASE_STANDARD.md
-                  - API work    → docs/34_API_STANDARD.md
-                  - Tests       → docs/41_TESTING_STANDARD.md
-                  - Code style  → docs/33_CODE_STANDARD.md
-Step 6 (TARGETED): Read the specific source files you will modify. Never read whole packages.
+Step 0 (Constitutional): Read this file (AGENTS.md) — Agent Constitution (you are here).
+Step 1 (Status): Read the Phase Status Board (§12 of AGENTS.md).
+Step 2 (Navigation): Read 60_MASTER_INDEX.md (Master Index).
+Step 3 (Specification): Locate and read current Phase Specification (e.g. docs/76_PHASE_14_API_GATEWAY_SPECIFICATION.md).
+Step 4 (Targeted): Read ONLY required standards & target files (never load whole folders/packages).
+Step 5 (Verification): Produce a summary of understanding showing limits and requirements.
 ```
+
+**Boot Discipline (Prohibited Expressions):**
+An agent must NEVER say or assume:
+- "I know."
+- "I assume."
+- "I'll continue."
+
+Instead, the agent must output this structured header explicitly before executing code changes:
+- **Authority Loaded:** <document paths>
+- **Current Phase:** <phase number>
+- **Dependencies:** <dependency info>
+- **Frozen Interfaces:** <list of interfaces>
+- **Files to modify:** <list of files>
+- **Files prohibited:** <list of files>
+- **STOP Conditions:** <applicable stop rules>
+- **Waiting for approval:** (Wait for Architect approval before making code changes)
 
 **Forbidden:** Reading the entire `docs/` folder, or all of `core/**`, in one session. (Violates Rule 1 Pillar + Context Budget Rule.)
 
@@ -155,6 +167,19 @@ Archive (commit with conventional message per docs/44_GIT_WORKFLOW.md)
 
 No milestone may be declared complete without its gate passing AND its report (§10 format) delivered.
 
+**Phase Completion Checklist:**
+A phase cannot be marked COMPLETE until all of the following are true:
+- `[ ]` Specification = Frozen
+- `[ ]` Implementation Plan = Approved
+- `[ ]` Walkthrough = Generated
+- `[ ]` Tests ≥ Required Coverage
+- `[ ]` Ruff Pass
+- `[ ]` Mypy Pass
+- `[ ]` Architecture Audit Pass
+- `[ ]` Authority Audit Pass
+- `[ ]` No STOP conditions open
+- `[ ]` User Approval Recorded
+
 ---
 
 ## 6. Automatic STOP Protocol
@@ -172,20 +197,46 @@ An agent MUST halt implementation immediately and emit a Conflict Report if ANY 
 8. Two authority sources conflict (§1) and the agent cannot reconcile by ranking.
 9. The approved specification and the existing code disagree.
 10. A DTO required by the DTO-First rule (§7.5) does not yet exist.
+11. The implementation plan deviates from or contradicts the approved Phase Specification.
 
 **Conflict Report Format (emit this verbatim, then wait):**
 
 ```
 IMPLEMENTATION BLOCKED
 
-Reason:            <one of the 10 conditions above, stated precisely>
+Reason:            <one of the 11 conditions above, stated precisely>
 Affected files:    <paths>
-Conflicting source: <which doc / interface / spec>
+Conflicting source: <which doc / interface / spec / plan>
+Source A (e.g. Spec): <details>
+Source B (e.g. Code/Plan): <details>
+Impact:            <governance / architectural impact>
 Recommended resolution: <your proposal — non-binding>
 Authority invoked: <rank from §1>
 
 Waiting for architect approval. Not proceeding.
 ```
+
+---
+
+## 6.1 Specification-First Resolution Rule (permanent — non-negotiable)
+
+When an implementation conflicts with an approved frozen specification, **the implementation always loses.** An agent (or human) must NEVER rewrite a specification to match an implementation that already exists on disk. The frozen specification is the source of truth; the code is the derivative.
+
+This rule exists precisely because of the failure mode it prevents: a divergent implementation appears on disk (via a context-rewrite, an abandoned branch, a tool, or human edits), and an agent "fixes" the contradiction by editing the spec backward to match the code. That silently retcons the architecture and destroys the meaning of "frozen." It must not happen.
+
+**When a spec-vs-implementation conflict is detected, the only valid responses are:**
+
+1. **Archive the implementation** (move, never delete — preserve provenance), then re-derive from the specification; OR
+2. **Raise a Change Request (CR, §8)** proposing the spec change, and STOP until a human approves it. Only after CR approval may the spec be amended, and only then may code be written against the amended spec.
+
+**Forbidden, always:**
+- Editing a frozen spec to match on-disk code without an approved CR.
+- Reusing, importing, or "salvaging" code from a divergent implementation into the frozen baseline.
+- Adopting any authority cited in code but absent from `docs/`, `AGENTS.md`, or git history (e.g. "Invariant N", "Revision X", "Phase Y+").
+
+**Concrete test:** If you cannot point to the line in an approved frozen document that authorizes a piece of code, treat the code as unauthorized. Cite the spec, not the code.
+
+*Origin:* codified 2026-06-28 after a divergent Phase 14 implementation (SSE-based, citing phantom "Invariant/Gatekeeper" authority) appeared on disk and was correctly archived per this rule rather than retro-fitted into `docs/76`. See `archive/phase14_prefreeze_divergent/README.md`.
 
 ---
 
@@ -241,7 +292,7 @@ Every milestone gate and the final gate must satisfy:
 
 ## 10. Milestone Report Format
 
-After EVERY milestone, the agent emits this report verbatim (adapted from the user's lifecycle spec). No milestone is closed without it.
+After EVERY milestone, the agent emits this report verbatim (adapted from the user's lifecycle spec). No milestone is closed without it. An agent MUST NOT proceed to the next milestone without explicit architect approval.
 
 ```
 MILESTONE <N> REPORT
@@ -252,12 +303,13 @@ Responsibilities:    <what each file now owns>
 Architecture Impact: <none / additive / <CR-XXX>>
 Public Interface Changes: <none / <list>>
 Tests Added:         <count + paths>
+Frozen modules touched: <NONE / list of modified frozen files>
 Ruff:                <pass/fail>
 Mypy:                <pass/fail>
 Coverage:            <% for affected files>
-Next Milestone:      <what comes next, or "Final Gate">
+Gate status:         PASS / BLOCKED (<reason>)
 
-Gate status: PASS / BLOCKED (<reason>)
+Awaiting approval before proceeding. Not proceeding.
 ```
 
 ---
@@ -269,6 +321,24 @@ Gate status: PASS / BLOCKED (<reason>)
 - One review at a time. Deliver, await approval, then proceed.
 - Never send giant patches. If a milestone is large, split it into sub-milestones.
 - Every change set must independently pass its mini quality gate.
+- **Standardized Code Header:** Every implementation file must carry a docstring header at the top pointing to its specification, plan, and non-authoritative status:
+  ```python
+  """
+  PHASE: <phase_number>
+  STATUS: IMPLEMENTATION
+  SPECIFICATION:
+      docs/<spec_file_name>
+  
+  IMPLEMENTATION PLAN:
+      docs/<plan_file_name>
+  
+  AUTHORITATIVE:
+      NO
+  
+  DO NOT CHANGE CONTRACTS HERE.
+  Contracts come only from Phase Specification.
+  """
+  ```
 
 ---
 
@@ -280,8 +350,8 @@ Maintain this board. When a phase freezes, add one line here and set its spec ST
 |-------|----------|--------|------------------------|
 | 1–12 | `docs/74_PHASE_1_12_MASTER_SPECIFICATION.md` | ✅ FROZEN | — (consolidated) |
 | 13 | `docs/75_PHASE_13_MASTER_SPECIFICATION.md` | ✅ FROZEN (2026-06-28) | 187 passed |
-| 14 | `docs/76_PHASE_14_*.md` | ⬜ Not started | — |
-| ... | ... | ... | ... |
+| 14 | `docs/76_PHASE_14_API_GATEWAY_SPECIFICATION.md` | ✅ FROZEN (2026-06-28) | 230 passed |
+| 16 | `AGENTS.md` | ✅ FROZEN (2026-06-29) | 193 passed |
 
 ---
 

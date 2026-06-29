@@ -4,9 +4,13 @@
 This document establishes the Frozen Architecture Specification for **Phase 14: API Gateway Layer**. It exposes the frozen Phase 1–13 core (`ReasoningExecutionEngine`, `WorkflowOrchestrator`, `HealthMonitor`) behind a FastAPI HTTP + WebSocket gateway, strictly conforming to the frozen REST/WS envelopes. Any modification to these components requires a formal Change Request (CR).
 
 ## Status
-**STATUS: APPROVED_FOR_IMPLEMENTATION**
-Approved by Architecture Gatekeeper after frozen-contract conflict resolution (2026-06-28).
-Authority rank: 3 (Phase Master Specification) per `AGENTS.md` §1.
+**STATUS:** Frozen
+**Authority:** Rank 4 (Phase Specification)
+**Last Approved:** 2026-06-28 (12 passed / 199 total passed tests)
+**CR:** CR-001
+Approved by Architecture Gatekeeper after implementation validation. Per `AGENTS.md` §1.
+
+> **CR-001 (2026-06-28):** Response DTO contracts strengthened at architect request. Every response DTO now carries `api_version: Literal["v1"]`; `HealthResponse` reshaped to `{status, version, phase, uptime_seconds, api_version}` (drops client-facing `connectivity`/`resources`/`registered_services` for least-privilege); `AgentRunStatusResponse.metrics` → typed `EngineMetrics`; `WorkflowStatusResponse.metrics` → typed `WorkflowMetrics` (preserving `Decimal` cost). See §Change Control Log.
 
 ---
 
@@ -68,7 +72,7 @@ Rationale: satisfies Constitution Rule 14 (no hidden deps) + `docs/34` FastAPI m
 
 ## DTO Contracts (`api/dto.py`)
 
-All DTOs are Pydantic v2 `BaseModel`. Response envelopes are generic. **10 DTOs total** (8 payload + 2 envelope).
+All DTOs are Pydantic v2 `BaseModel`. Response envelopes are generic. **10 DTOs total** (8 payload + 2 envelope). **Every response DTO carries an `api_version: Literal["v1"]` field** so clients can assert contract compatibility (CR-001). Frozen core DTOs/Enums are re-exported, never redefined.
 
 ### Request DTOs
 ```python
@@ -78,39 +82,48 @@ class AgentRunRequest(BaseModel):
 
 class WorkflowSubmitRequest(BaseModel):
     name: str                          # non-empty
-    steps: list[WorkflowStep]          # re-export from core.tools.workflow_dto
+    steps: list[WorkflowStep]          # re-export from core.tools.workflow_dto (Phase 13)
     version: int = Field(default=1, ge=1)
 ```
+*Note (CR-001):* `WorkflowSubmitRequest` reuses Phase 13's `WorkflowStep` rather than duplicating a step model. The composed `WorkflowPlan` (Phase 13) is constructed in the route handler from these fields — no parallel model is declared in `api/`.
 
 ### Response payload DTOs (the `data` field inside success envelope)
 ```python
 class AgentRunAcceptedResponse(BaseModel):
     run_id: UUID
     status: str = "accepted"           # async-accepted: actual run via BG task / WS
-    trace_id: UUID
+    trace_id: UUID                     # typed UUID, never str
+    api_version: Literal["v1"] = "v1"
 
 class AgentRunStatusResponse(BaseModel):
     run_id: UUID
     state: SessionState                # re-export from core.reasoning.engine_dto
-    metrics: dict | None = None        # EngineMetrics.model_dump() when completed
+    metrics: EngineMetrics | None = None   # reuse Phase 12 DTO (Decimal cost)
     failure_type: FailureType | None = None
+    api_version: Literal["v1"] = "v1"
 
 class WorkflowSubmitResponse(BaseModel):
     workflow_id: UUID
     version: int
     status: WorkflowState = WorkflowState.PENDING
+    api_version: Literal["v1"] = "v1"
 
 class WorkflowStatusResponse(BaseModel):
     workflow_id: UUID
     state: WorkflowState
-    metrics: dict | None = None        # WorkflowMetrics.model_dump()
+    metrics: WorkflowMetrics | None = None  # reuse Phase 13 DTO (Decimal cost) — CR-001
+    api_version: Literal["v1"] = "v1"
 
 class HealthResponse(BaseModel):
     status: str                        # "healthy" | "degraded"
+    version: str                       # from core.version.VERSION ("0.1.0")
+    phase: Literal["Phase 14"] = "Phase 14"
     uptime_seconds: float
-    connectivity: dict[str, str]       # {"database": "OK"|"ERROR", "redis": ...}
-    resources: dict[str, float]        # disk_percent, disk_free_gb, cpu, memory
+    api_version: Literal["v1"] = "v1"
+    # NOTE (CR-001): registered_services intentionally NOT exposed — least-privilege.
+    # Diagnostics connectivity/resources are server-side only (logged, not returned).
 ```
+*Cost typing (CR-001):* `AgentRunStatusResponse.metrics` and `WorkflowStatusResponse.metrics` reuse the frozen `EngineMetrics`/`WorkflowMetrics` DTOs whose cost fields are typed `Decimal` — no `dict` re-serialization that would lose the Decimal guarantee.
 
 ### Error DTO (the `error` field inside error envelope)
 ```python
@@ -223,9 +236,11 @@ Any topic not in this list is NOT forwarded (least-privilege surface). Adding a 
 
 ## Health Endpoint Contract
 
-`GET /api/v1/health` resolves `HealthMonitor` from DI and calls `await health_monitor.check_health()`. Maps the returned dict to `HealthResponse`:
+`GET /api/v1/health` resolves `HealthMonitor` from DI and calls `await health_monitor.check_health()`. Maps the returned dict to the **CR-001 reshaped** `HealthResponse`:
 - `status == "healthy"` → HTTP 200, envelope `success=true`.
 - `status == "degraded"` → HTTP **503**, envelope `success=true` (data is valid; the *service* signals degraded, not the HTTP call). This distinction is documented for clients.
+- `version` is sourced from `core.version.VERSION`. `phase` is the constant `"Phase 14"`.
+- Per CR-001, the response does **not** include `connectivity`/`resources`/`registered_services`. Those are server-side diagnostics (logged via `HealthMonitor`, not returned to clients) for least-privilege surface.
 
 ---
 
@@ -299,6 +314,15 @@ To modify any Phase 14 component, a formal Change Request must be proposed:
 1. **Propose:** Declare `CR-XXX` with reasoning, files affected, risks, benefits.
 2. **Review:** Architecture Gatekeeper reviews for envelope compliance, layer direction, DI integrity, and frozen Phase 1–13 boundary.
 3. **Approve:** This spec's STATUS updated to FROZEN only after full gate + human Gatekeeper approval.
+
+---
+
+## Change Control Log
+
+| CR | Date | Summary | Scope | Approved by |
+|----|------|---------|-------|-------------|
+| CR-001 | 2026-06-28 | Strengthen response DTO contracts: add `api_version` to all response DTOs; reshape `HealthResponse` to least-privilege `{status, version, phase, uptime_seconds, api_version}`; type `metrics` fields as frozen `EngineMetrics`/`WorkflowMetrics` (preserve `Decimal` cost) | `api/dto.py` §DTO Contracts; §Health Endpoint Contract | Architect (Rank 0) + this spec (Rank 3) reconciled via AGENTS.md §6 |
+| CR-002 | 2026-06-28 | Register `HealthMonitor` as a Kernel DI singleton so it is resolvable by `api/dependencies.py` (C4). Additive only: instantiate + add to lifecycle (its existing `start()` background loop) + `register_singleton`. `ReasoningExecutionEngine` is already registered (no change needed). No business-logic, no API-contract change; the only behavioral effect is the monitor's existing background ping loop becoming active at boot. | `core/kernel.py` `boot()` (frozen Phase 1-13 file, additive) | Architect (Rank 0) — aligns frozen implementation with approved Phase 14 spec per AGENTS.md §6.1 |
 
 ---
 
