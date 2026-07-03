@@ -394,7 +394,10 @@ def test_scraper_ssrf_attacks() -> None:
     ):
         with pytest.raises(JarvisAgentError) as excinfo:
             scraper.validate_url(bad_url)
-        assert any(msg in excinfo.value.message for msg in ("Unauthorized scheme", "Invalid URL structure"))
+        assert any(
+            msg in excinfo.value.message
+            for msg in ("Unauthorized scheme", "Invalid URL structure")
+        )
 
     # Hostnames resolving to loopback/private
     # We can mock socket.getaddrinfo to return local IPs
@@ -485,7 +488,9 @@ def test_learning_api_background_tasks() -> None:
     # Verify mock_service.ingest_url was called (since TestClient runs background tasks immediately inline)
     # and check that it was scheduled with the pre-allocated chunk UUID from response
     chunk_id = ing_res.json()["chunk_id"]
-    mock_service.ingest_url.assert_called_once_with("https://python.org", UUID(chunk_id))
+    mock_service.ingest_url.assert_called_once_with(
+        "https://python.org", UUID(chunk_id)
+    )
 
 
 def test_malformed_html_and_unicode_parsing() -> None:

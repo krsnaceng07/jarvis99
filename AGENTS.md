@@ -64,8 +64,9 @@ Step 0 (Constitutional): Read this file (AGENTS.md) — Agent Constitution (you 
 Step 1 (Status): Read the Phase Status Board (§12 of AGENTS.md).
 Step 2 (Navigation): Read 60_MASTER_INDEX.md (Master Index).
 Step 3 (Specification): Locate and read current Phase Specification (e.g. docs/76_PHASE_14_API_GATEWAY_SPECIFICATION.md).
-Step 4 (Targeted): Read ONLY required standards & target files (never load whole folders/packages).
-Step 5 (Verification): Produce a summary of understanding showing limits and requirements.
+Step 4 (Governance): Read all Engineering Governance documents in the `.antigravity/` directory.
+Step 5 (Targeted): Read ONLY required standards & target files (never load whole folders/packages).
+Step 6 (Verification): Produce a summary of understanding showing limits and requirements.
 ```
 
 **Boot Discipline (Prohibited Expressions):**
@@ -351,7 +352,26 @@ Maintain this board. When a phase freezes, add one line here and set its spec ST
 | 1–12 | `docs/74_PHASE_1_12_MASTER_SPECIFICATION.md` | ✅ FROZEN | — (consolidated) |
 | 13 | `docs/75_PHASE_13_MASTER_SPECIFICATION.md` | ✅ FROZEN (2026-06-28) | 187 passed |
 | 14 | `docs/76_PHASE_14_API_GATEWAY_SPECIFICATION.md` | ✅ FROZEN (2026-06-28) | 230 passed |
+| 15 | `docs/77_PHASE_15_PERSISTENT_EXECUTION_SPECIFICATION.md` | ✅ FROZEN (2026-06-29) | 265 passed |
 | 16 | `AGENTS.md` | ✅ FROZEN (2026-06-29) | 193 passed |
+| 17 | `docs/78_PHASE_17_AUTHENTICATION_AUTHORIZATION_SPECIFICATION.md` | ✅ FROZEN (2026-06-30) | 288 passed |
+| 18 | `docs/79_PHASE_18_DYNAMIC_SKILL_FRAMEWORK_SPECIFICATION.md` | ✅ FROZEN (2026-06-30) | 443 passed (155 skill) |
+| 19 | `docs/80_PHASE_19_REAL_MEMORY_ARCHITECTURE_SPECIFICATION.md` | 🟡 IN PROGRESS (2026-07-03) — M5.5.1.A/B/C APPROVED; D in progress; spec frozen 2026-06-30 | 68 passed (growing) |
+
+**M5.5.1 (Architecture Linter) sub-milestone board:**
+
+| Sub | Deliverable | Status | Tests | Approved |
+|-----|------------|--------|-------|----------|
+| M5.5.1.A | Skeleton (engine, registry, reporters, CLI) | ✅ APPROVED | 25 | 2026-07-03 |
+| M5.5.1.B | LayerDirection rules (LR-1..5) | ✅ APPROVED | +20 (48) | 2026-07-03 |
+| M5.5.1.C | Repository rules (NBR-1..4) | ✅ APPROVED | +20 (68) | 2026-07-03 |
+| M5.5.1.D | Engine rules (NSD-1..3) | 🟡 IN PROGRESS | +12 (→80) | — |
+| M5.5.1.E | DTO + UI-core rules (NDE-1..3, NUC-1..2) | ❌ not started | +20 (→100) | — |
+| M5.5.1.F | NCP + CI + KG stubs + Freeze + Dogfooding | ❌ not started | +final | — |
+
+> **Live tracking:** [JARVIS_EXECUTIVE_DASHBOARD.md](JARVIS_EXECUTIVE_DASHBOARD.md) is updated at every sub-milestone approval.
+
+**Implementation Plan:** `docs/81_PHASE_19_IMPLEMENTATION_PLAN.md` — FROZEN (2026-06-30)
 
 ---
 

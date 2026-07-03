@@ -298,12 +298,104 @@ class Kernel(LifecycleInterface):
                 WorkflowOrchestrator, workflow_orchestrator
             )
 
+            # Phase 15 — Persistent Execution & Run Management
+            from core.memory.database import db_manager
+            from core.reasoning.persistence_service import PersistenceService
+            from core.tools.execution_repository import ExecutionRepository
+            from core.tools.resume_manager import ResumeManager
+
+            # Initialize database session manager
+            db_manager.init(settings)
+
+            # SQLite/dev: materialize ORM tables before seeding or persistence hooks
+            if settings.database.host == "sqlite":
+                from core.memory import (
+                    security_models as _security_models,  # noqa: F401
+                )
+                from core.memory.models import Base
+                from core.tools import (
+                    execution_models as _execution_models,  # noqa: F401
+                )
+
+                async with db_manager._engine.begin() as conn:  # type: ignore[union-attr]
+                    await conn.run_sync(Base.metadata.create_all)
+
+            execution_repository = ExecutionRepository()
+            persistence_service = PersistenceService(
+                repository=execution_repository,
+                event_bus=event_bus,
+            )
+            resume_manager = ResumeManager(
+                repository=execution_repository,
+                event_bus=event_bus,
+            )
+
+            self.container.register_singleton(ExecutionRepository, execution_repository)
+            self.container.register_singleton(PersistenceService, persistence_service)
+            self.container.register_singleton(ResumeManager, resume_manager)
+
+            self.lifecycle_manager.add_service(persistence_service)
+
+            # Phase 17 — Security services
+            from core.security.api_key_service import ApiKeyService
+            from core.security.auth_service import AuthenticationService
+            from core.security.configuration_service import ConfigurationService
+            from core.security.jwt_service import JWTService
+            from core.security.password_service import PasswordService
+            from core.security.rbac_service import RbacService
+            from core.security.revocation_service import RevocationService
+            from core.security.seed_service import SecuritySeedService
+            from core.tools.security_repository import SecurityRepository
+
+            security_repository = SecurityRepository()
+            config_service = ConfigurationService()
+            password_service = PasswordService(cost_factor=config_service.bcrypt_cost)
+            jwt_service = JWTService(config=config_service)
+            revocation_service = RevocationService(repo=security_repository)
+            api_key_service = ApiKeyService()
+            rbac_service = RbacService()
+            auth_service = AuthenticationService(
+                repo=security_repository,
+                password_service=password_service,
+                jwt_service=jwt_service,
+                revocation_service=revocation_service,
+                api_key_service=api_key_service,
+                rbac_service=rbac_service,
+                config=config_service,
+                event_bus=event_bus,
+            )
+            seed_service = SecuritySeedService(
+                repo=security_repository,
+                password_service=password_service,
+                config=config_service,
+            )
+
+            self.container.register_singleton(SecurityRepository, security_repository)
+            self.container.register_singleton(ConfigurationService, config_service)
+            self.container.register_singleton(PasswordService, password_service)
+            self.container.register_singleton(JWTService, jwt_service)
+            self.container.register_singleton(RevocationService, revocation_service)
+            self.container.register_singleton(ApiKeyService, api_key_service)
+            self.container.register_singleton(RbacService, rbac_service)
+            self.container.register_singleton(AuthenticationService, auth_service)
+            self.container.register_singleton(SecuritySeedService, seed_service)
+
             # 3. Add kernel to lifecycle list (or configure dependency tree)
             self.lifecycle_manager.add_service(self)
 
             # 4. Initialize and start all services via LifecycleManager
             await self.lifecycle_manager.initialize_all()
             await self.lifecycle_manager.start_all()
+
+            # Seed default security configurations
+            try:
+                async with db_manager.session() as session:
+                    async with session.begin():
+                        await seed_service.seed_defaults(session)
+            except Exception as e:
+                logger.warning(
+                    "Database seeding skipped or failed during boot: %s", str(e)
+                )
 
             self._booted = True
             logger.info("Kernel successfully booted.")

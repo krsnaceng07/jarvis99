@@ -4,7 +4,9 @@ Validates model providers, health circuit breakers, cost budget restrictions, st
 execution orchestrators, and early-stopping reflection loops.
 """
 
-from typing import Any
+import json
+from decimal import Decimal
+from typing import Any, AsyncIterator, Dict, List, Optional
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -12,7 +14,7 @@ import pytest
 from sqlalchemy import select
 
 from core.config import Settings
-from core.exceptions import JarvisSkillError, JarvisSystemError
+from core.exceptions import BudgetExceededError, JarvisSkillError, JarvisSystemError
 from core.memory.database import db_manager
 from core.memory.models import Base
 from core.reasoning.cost import CostGovernor
@@ -39,6 +41,127 @@ from core.tools.base import ToolExecutionResult
 from core.tools.runtime import ToolRuntime
 
 
+async def mock_urllib_request(
+    self: Any,
+    method: str,
+    url: str,
+    headers: Dict[str, str],
+    data: Optional[bytes] = None,
+    timeout: float = 30.0,
+) -> bytes:
+    prompt = "test"
+    model = ""
+    if data:
+        try:
+            payload = json.loads(data.decode("utf-8"))
+            if "contents" in payload:
+                prompt = payload["contents"][0]["parts"][0]["text"]
+            elif "messages" in payload:
+                prompt = payload["messages"][-1]["content"]
+            elif "prompt" in payload:
+                prompt = payload["prompt"]
+            if "model" in payload:
+                model = payload["model"].lower()
+        except Exception:
+            pass
+
+    if "generativelanguage" in url:
+        return json.dumps(
+            {"candidates": [{"content": {"parts": [{"text": f"[Gemini: {prompt}]"}]}}]}
+        ).encode("utf-8")
+    elif "anthropic" in url:
+        return json.dumps(
+            {"content": [{"type": "text", "text": f"[Claude: {prompt}]"}]}
+        ).encode("utf-8")
+    elif "openai" in url:
+        return json.dumps(
+            {
+                "choices": [
+                    {"message": {"role": "assistant", "content": f"[OpenAI: {prompt}]"}}
+                ]
+            }
+        ).encode("utf-8")
+    elif "qwen" in model or "qwen" in url:
+        return json.dumps(
+            {"message": {"role": "assistant", "content": f"[Qwen: {prompt}]"}}
+        ).encode("utf-8")
+    else:
+        return json.dumps(
+            {"message": {"role": "assistant", "content": f"[Llama: {prompt}]"}}
+        ).encode("utf-8")
+
+
+async def mock_urllib_stream_request(
+    self: Any,
+    method: str,
+    url: str,
+    headers: Dict[str, str],
+    data: Optional[bytes] = None,
+    timeout: float = 30.0,
+) -> AsyncIterator[bytes]:
+    prompt = "test"
+    model = ""
+    if data:
+        try:
+            payload = json.loads(data.decode("utf-8"))
+            if "contents" in payload:
+                prompt = payload["contents"][0]["parts"][0]["text"]
+            elif "messages" in payload:
+                prompt = payload["messages"][-1]["content"]
+            elif "prompt" in payload:
+                prompt = payload["prompt"]
+            if "model" in payload:
+                model = payload["model"].lower()
+        except Exception:
+            pass
+
+    if "anthropic" in url:
+        chunks = [
+            f'data: {{"type": "content_block_delta", "delta": {{"type": "text_delta", "text": "[Claude: {prompt}]"}}}}\n'.encode(
+                "utf-8"
+            ),
+            b"data: [DONE]\n",
+        ]
+    elif "openai" in url:
+        chunks = [
+            f'data: {{"choices": [{{"delta": {{"content": "[OpenAI: {prompt}]"}}}}]}}\n'.encode(
+                "utf-8"
+            ),
+            b"data: [DONE]\n",
+        ]
+    elif "generativelanguage" in url:
+        chunks = [
+            f'{{"candidates": [{{"content": {{"parts": [{{"text": "[Gemini: {prompt}]"}}]}}}}]}}'.encode(
+                "utf-8"
+            ),
+        ]
+    else:
+        # qwen or llama
+        name = "Qwen" if ("qwen" in model or "qwen" in url) else "Llama"
+        chunks = [
+            f'{{"message": {{"content": "[{name}: {prompt}]"}}, "done": true}}'.encode(
+                "utf-8"
+            ),
+        ]
+
+    async def generator() -> AsyncIterator[bytes]:
+        for chunk in chunks:
+            yield chunk
+
+    return generator()
+
+
+@pytest.fixture(autouse=True)
+def mock_transport_network(monkeypatch: Any) -> None:
+    monkeypatch.setattr(
+        "core.reasoning.transport.UrllibTransport.request", mock_urllib_request
+    )
+    monkeypatch.setattr(
+        "core.reasoning.transport.UrllibTransport.stream_request",
+        mock_urllib_stream_request,
+    )
+
+
 @pytest.fixture
 async def db_session() -> Any:
     """Provides a transactional database session over an in-memory SQLite setup."""
@@ -53,6 +176,29 @@ async def db_session() -> Any:
         yield session
 
     await db_manager.close()
+
+
+def create_test_router(
+    providers: List[Any], settings: Settings, cost_gov: CostGovernor
+) -> ModelRouter:
+    from core.reasoning.rate_limiter import ProviderRateLimiter
+    from core.reasoning.registry import ModelCapabilityRegistry
+    from core.reasoning.telemetry import ReasoningTelemetry
+
+    registry = ModelCapabilityRegistry()
+    for p in providers:
+        registry.register_provider_config(p.config)
+    rate_limiter = ProviderRateLimiter()
+    telemetry = ReasoningTelemetry()
+
+    return ModelRouter(
+        providers=providers,
+        registry=registry,
+        rate_limiter=rate_limiter,
+        telemetry=telemetry,
+        cost_gov=cost_gov,
+        settings=settings,
+    )
 
 
 @pytest.mark.asyncio
@@ -93,7 +239,8 @@ async def test_model_router_priority_mappings() -> None:
     qwen = QwenProvider()
     llama = LlamaProvider()
 
-    router = ModelRouter([gemini, claude, qwen, llama], settings)
+    cost_gov = CostGovernor(settings)
+    router = create_test_router([gemini, claude, qwen, llama], settings, cost_gov)
 
     # 1. Normal resolution: Coding -> Claude
     provider = await router.get_provider_for_task("Coding")
@@ -117,7 +264,8 @@ async def test_model_router_priority_mappings() -> None:
     assert provider.name == "gemini"
 
 
-def test_cost_governor_budget_restrictions() -> None:
+@pytest.mark.asyncio
+async def test_cost_governor_budget_restrictions() -> None:
     """Verify CostGovernor calculates pricing weights and gates budget violations."""
     settings = Settings.load_settings()
     cost_gov = CostGovernor(settings)
@@ -126,28 +274,28 @@ def test_cost_governor_budget_restrictions() -> None:
     prompt = "Hello world this is a test prompt statement."
     cost = cost_gov.estimate_cost(prompt, "claude")
     # 8 words * 1.3 = 10 tokens. Rate for Claude = 0.0015 per 1k input tokens.
-    assert cost > 0.0
+    assert cost > 0
 
     # 2. Budget limits checking
-    cost_gov.check_budget_limits(0.01)  # safe cost
+    await cost_gov.check_budget_limits(Decimal("0.01"))  # safe cost
 
     # Per-call budget gate trigger ($0.50 USD threshold limit)
-    with pytest.raises(JarvisSystemError) as exc:
-        cost_gov.check_budget_limits(0.60)
-    assert exc.value.code == "BUDGET_003"
+    with pytest.raises(JarvisSystemError) as exc_system:
+        await cost_gov.check_budget_limits(Decimal("0.60"))
+    assert exc_system.value.code == "BUDGET_PER_CALL_EXCEEDED"
 
     # Daily budget exhaustion limit
-    cost_gov.daily_spending = 9.99
-    with pytest.raises(JarvisSystemError) as exc:
-        cost_gov.check_budget_limits(0.05)
-    assert exc.value.code == "BUDGET_002"
+    cost_gov.cached_daily_spending = Decimal("9.99")
+    with pytest.raises(BudgetExceededError) as exc_budget:
+        await cost_gov.check_budget_limits(Decimal("0.05"))
+    assert exc_budget.value.code == "BUDGET_DAILY_EXHAUSTED"
 
     # Monthly budget exhaustion limit
     cost_gov.reset_spending()
-    cost_gov.monthly_spending = 99.99
-    with pytest.raises(JarvisSystemError) as exc:
-        cost_gov.check_budget_limits(0.05)
-    assert exc.value.code == "BUDGET_001"
+    cost_gov.cached_monthly_spending = Decimal("99.99")
+    with pytest.raises(BudgetExceededError) as exc_monthly:
+        await cost_gov.check_budget_limits(Decimal("0.05"))
+    assert exc_monthly.value.code == "BUDGET_MONTHLY_EXHAUSTED"
 
 
 def test_prompt_builder_budget_compressions() -> None:
@@ -180,7 +328,7 @@ async def test_planner_goal_decomposition_waves_and_history() -> None:
     settings = Settings.load_settings()
     gemini = GeminiProvider()
     cost_gov = CostGovernor(settings)
-    router = ModelRouter([gemini], settings)
+    router = create_test_router([gemini], settings, cost_gov)
     prompt_builder = PromptBuilder()
 
     session_id = uuid4()
@@ -337,7 +485,7 @@ async def test_reasoning_database_persistence(db_session: Any) -> None:
     settings = Settings.load_settings()
     gemini = GeminiProvider()
     cost_gov = CostGovernor(settings)
-    router = ModelRouter([gemini], settings)
+    router = create_test_router([gemini], settings, cost_gov)
     prompt_builder = PromptBuilder()
 
     session_id = uuid4()
@@ -375,38 +523,38 @@ async def test_reasoning_edge_cases_coverage() -> None:
     """Exercise remaining branches in router, cost, prompt, providers, and reflection to hit 100% coverage."""
     settings = Settings.load_settings()
 
-    # 1. Router edge cases
-    empty_router = ModelRouter([], settings)
+    cost_gov = CostGovernor(settings)
+    empty_router = create_test_router([], settings, cost_gov)
     with pytest.raises(JarvisSystemError) as exc_empty:
         await empty_router.get_provider_for_task("NonExistent")
-    assert exc_empty.value.code == "ROUTER_001"
+    assert exc_empty.value.code == "ROUTER_002"
 
     # Default fallback when category is missing from matrix
     gemini = GeminiProvider()
-    one_provider_router = ModelRouter([gemini], settings)
+    one_provider_router = create_test_router([gemini], settings, cost_gov)
     prov = await one_provider_router.get_provider_for_task("NonExistent")
     assert prov.name == "gemini"
 
     # 2. Providers: generate/stream coverages
     claude = ClaudeProvider()
     assert "[Claude:" in await claude.generate("test")
-    async for chunk in claude.stream("test"):
+    async for chunk in await claude.stream_generate("test"):
         assert "Claude" in chunk
 
     openai = OpenAIProvider()
     assert "[OpenAI:" in await openai.generate("test")
-    async for chunk in openai.stream("test"):
+    async for chunk in await openai.stream_generate("test"):
         assert "OpenAI" in chunk
 
     qwen = QwenProvider()
     assert "[Qwen:" in await qwen.generate("test")
-    async for chunk in qwen.stream("test"):
+    async for chunk in await qwen.stream_generate("test"):
         assert "Qwen" in chunk
     assert qwen.supports_vision() is False
 
     llama = LlamaProvider()
     assert "[Llama:" in await llama.generate("test")
-    async for chunk in llama.stream("test"):
+    async for chunk in await llama.stream_generate("test"):
         assert "Llama" in chunk
     assert llama.supports_tools() is False
 
@@ -440,7 +588,7 @@ async def test_reasoning_edge_cases_coverage() -> None:
 
     # 5. Planner goal splitting fallback
     cost_gov = CostGovernor(settings)
-    router = ModelRouter([gemini], settings)
+    router = create_test_router([gemini], settings, cost_gov)
     session_planner = ReasoningSession(session_id, goal_id)
     # goal without separator
     plan = await session_planner.decompose_goal("", builder, router, cost_gov)

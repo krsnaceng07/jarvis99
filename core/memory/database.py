@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from core.config import Settings
-from core.exceptions import JarvisMemoryError
+from core.exceptions import JarvisError, JarvisMemoryError
 
 
 class DatabaseSessionManager:
@@ -88,6 +88,9 @@ class DatabaseSessionManager:
         session = self._sessionmaker()
         try:
             yield session
+        except JarvisError:
+            await session.rollback()
+            raise
         except Exception as e:
             await session.rollback()
             raise JarvisMemoryError(

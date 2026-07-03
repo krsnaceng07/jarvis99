@@ -1,0 +1,37 @@
+# Architecture Linter — default config
+# See: docs/governance/architecture_linter.md (FROZEN v1.0, M5.5.0)
+# Plan:  docs/phases/phase19/m5_5_1_architecture_linter_implementation_plan.md
+
+[general]
+severity_default = "error"
+exclude = ["tests/", "archive/", "scripts/"]
+output_format = "text"
+fail_on = "error"
+
+[rules.LR]
+enabled = true
+severity = "error"
+
+[rules.NBR]
+enabled = true
+severity = "error"
+
+[rules.NSD]
+enabled = true
+severity = "error"
+
+[rules.NDE]
+enabled = true
+severity = "error"
+
+[rules.NUC]
+enabled = true
+severity = "error"
+
+[rules.NCP]
+enabled = true
+severity = "error"
+
+[rules.KG]
+enabled = false
+severity = "error"

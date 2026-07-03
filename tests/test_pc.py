@@ -341,7 +341,9 @@ async def test_pc_controller_flow(pc_setup: Dict[str, Any]) -> None:
 
     # 7. Execution crash recovery test
     class CrashingAdapter(MockAdapter):
-        async def execute_mouse_event(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+        async def execute_mouse_event(
+            self, *args: Any, **kwargs: Any
+        ) -> Dict[str, Any]:
             raise RuntimeError("Hardware failure")
 
     controller.adapter = CrashingAdapter()

@@ -3,7 +3,7 @@
 Implements graph models and the BFS-based traversal repository with cycle avoidance.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 from uuid import UUID
 
@@ -11,12 +11,14 @@ from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, String, Uuid, 
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.exceptions import JarvisMemoryError
 from core.memory.interfaces import (
     IKnowledgeGraphRepository,
     MemoryNodeDTO,
     MemoryRelationDTO,
 )
 from core.memory.models import Base
+from core.memory.validator import validate_graph_node, validate_graph_relation
 
 # =====================================================================
 # SQLAlchemy Graph Models
@@ -39,9 +41,14 @@ class GraphNode(Base):  # type: ignore[misc]
     properties = Column(
         JSON().with_variant(JSONB, "postgresql"), nullable=False, default=dict
     )
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
     updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
 
@@ -67,7 +74,9 @@ class GraphEdge(Base):  # type: ignore[misc]
     properties = Column(
         JSON().with_variant(JSONB, "postgresql"), nullable=False, default=dict
     )
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
 
 
 # =====================================================================
@@ -139,6 +148,13 @@ class PostgresKnowledgeGraphRepository(IKnowledgeGraphRepository):
 
     async def create_node(self, node: MemoryNodeDTO) -> MemoryNodeDTO:
         """Store a new entity node."""
+        validation = validate_graph_node(node)
+        if not validation.valid:
+            raise JarvisMemoryError(
+                "MEMORY_INVALID_NODE",
+                f"Invalid graph node: {', '.join(validation.errors)}",
+            )
+
         db_node = GraphNode(
             id=node.id,
             session_id=node.session_id,
@@ -169,13 +185,20 @@ class PostgresKnowledgeGraphRepository(IKnowledgeGraphRepository):
             elif hasattr(db_node, field):
                 setattr(db_node, field, value)
 
-        db_node.updated_at = datetime.utcnow()  # type: ignore[assignment]
+        db_node.updated_at = datetime.now(timezone.utc)  # type: ignore[assignment]
         self.session.add(db_node)
         await self.session.flush()
         return to_node_dto(db_node)
 
     async def create_relation(self, relation: MemoryRelationDTO) -> MemoryRelationDTO:
         """Store a directional relationship link between two nodes."""
+        validation = validate_graph_relation(relation)
+        if not validation.valid:
+            raise JarvisMemoryError(
+                "MEMORY_INVALID_RELATION",
+                f"Invalid graph relation: {', '.join(validation.errors)}",
+            )
+
         db_edge = GraphEdge(
             id=relation.id,
             source_node_id=relation.source_node_id,

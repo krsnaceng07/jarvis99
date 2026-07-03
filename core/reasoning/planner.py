@@ -187,7 +187,7 @@ class ReasoningSession:
 
         # Cost estimation and budget checking
         estimated_cost = cost_gov.estimate_cost(compiled_prompt, provider.name)
-        cost_gov.check_budget_limits(estimated_cost)
+        await cost_gov.check_budget_limits(estimated_cost)
 
         # Run provider generation
         import time
@@ -200,10 +200,12 @@ class ReasoningSession:
         # Compute cost metrics
         in_tokens = provider.count_tokens(compiled_prompt)
         out_tokens = provider.count_tokens(raw_output)
-        actual_cost = cost_gov.log_usage(in_tokens, out_tokens, provider.name)
+        actual_cost = await cost_gov.log_usage(
+            in_tokens, out_tokens, provider.name, provider.model_name
+        )
 
         self.total_tokens += in_tokens + out_tokens
-        self.total_cost += actual_cost
+        self.total_cost += float(actual_cost)
 
         # Wave Decomposition Rules: Max 3 independent tasks per wave, atomic checklist
         # For mock purposes, split goal sentences to populate waves
@@ -236,7 +238,7 @@ class ReasoningSession:
             waves=waves,
             steps=[f"Step: {t}" for w in waves for t in w],
             dependencies=[],
-            estimated_cost=estimated_cost,
+            estimated_cost=float(estimated_cost),
             estimated_tokens=in_tokens,
             confidence=0.95,
             requires_approval=(estimated_cost > cost_gov.per_call_budget),

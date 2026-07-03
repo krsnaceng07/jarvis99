@@ -22,7 +22,7 @@ container raises JarvisSystemError (SYSTEM_001), which middleware maps to
 an ErrorEnvelope (503). Dependency direction is api -> core only (C5).
 """
 
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator, Awaitable, Callable, List, Optional
 from uuid import UUID
 
 from fastapi import Depends
@@ -30,13 +30,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dto import AgentRunStatusResponse
 from core.config import Settings
+from core.exceptions import AuthenticationError
 from core.health import HealthMonitor
 from core.interfaces import EventBusInterface
 from core.kernel import Kernel
 from core.memory.database import db_manager
 from core.reasoning.engine import ReasoningExecutionEngine
+from core.security.auth_context import RequestContext, active_context
+from core.security.auth_service import AuthenticationService
+from core.security.rbac_service import RbacService
+from core.tools.execution_repository import ExecutionRepository
 from core.tools.repository import WorkflowRepository
 from core.tools.runtime import ToolRuntime
+from core.tools.security_repository import SecurityRepository
 from core.tools.validator import WorkflowValidator
 from core.tools.workflow_orchestrator import WorkflowOrchestrator
 
@@ -148,7 +154,58 @@ def get_agent_runs() -> dict[UUID, AgentRunStatusResponse]:
     return _agent_runs
 
 
+def get_execution_repository(
+    kernel: Kernel = Depends(get_kernel),
+) -> ExecutionRepository:
+    """FastAPI dependency: resolve the ExecutionRepository singleton (Phase 15)."""
+    return kernel.container.resolve(ExecutionRepository)
+
+
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency: yield transactional database sessions."""
     async with db_manager.session() as session:
         yield session
+
+
+def get_security_repository(
+    kernel: Kernel = Depends(get_kernel),
+) -> SecurityRepository:
+    """FastAPI dependency: resolve the SecurityRepository singleton."""
+    return kernel.container.resolve(SecurityRepository)
+
+
+def get_authentication_service(
+    kernel: Kernel = Depends(get_kernel),
+) -> AuthenticationService:
+    """FastAPI dependency: resolve the AuthenticationService singleton."""
+    return kernel.container.resolve(AuthenticationService)
+
+
+def get_rbac_service(
+    kernel: Kernel = Depends(get_kernel),
+) -> RbacService:
+    """FastAPI dependency: resolve the RbacService singleton."""
+    return kernel.container.resolve(RbacService)
+
+
+def require_permissions(
+    required_permissions: List[str],
+) -> Callable[..., Awaitable[RequestContext]]:
+    """FastAPI dependency builder enforcing active user context permission scopes."""
+
+    async def dependency() -> RequestContext:
+        ctx = active_context.get()
+        if not ctx:
+            raise AuthenticationError(
+                code="AUTH_005", message="Authentication credentials were not provided."
+            )
+
+        user_permissions = set(ctx.permissions)
+        if not all(scope in user_permissions for scope in required_permissions):
+            raise AuthenticationError(
+                code="AUTH_006",
+                message="Insufficient permissions to access this resource.",
+            )
+        return ctx
+
+    return dependency

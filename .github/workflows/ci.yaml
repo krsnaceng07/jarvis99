@@ -1,0 +1,30 @@
+name: JARVIS OS CI Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  audit-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Ensure complete git history is fetched for modified file checks
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: '3.12'
+
+      - name: Sync dependencies
+        run: |
+          uv sync --group dev
+
+      - name: Run Automated Audit Framework
+        run: |
+          uv run python -m audit.cli --verbose

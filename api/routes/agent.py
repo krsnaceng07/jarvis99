@@ -1,11 +1,11 @@
 """
-PHASE: 14
+PHASE: 15
 STATUS: IMPLEMENTATION
 SPECIFICATION:
-    docs/76_PHASE_14_API_GATEWAY_SPECIFICATION.md
+    docs/77_PHASE_15_PERSISTENT_EXECUTION_SPECIFICATION.md
 
 IMPLEMENTATION PLAN:
-    C:/Users/kcs23/.gemini/antigravity-ide/brain/721908f6-e992-4e3d-9eca-2fca584e321e/implementation_plan.md
+    docs/implementation_plan.md
 
 AUTHORITATIVE:
     NO
@@ -15,15 +15,21 @@ Contracts come only from Phase Specification.
 """
 
 import uuid
-from typing import Dict
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.dependencies import get_agent_runs, get_reasoning_engine
+from api.dependencies import (
+    get_db_session,
+    get_execution_repository,
+    get_reasoning_engine,
+    require_permissions,
+)
 from api.dto import (
     AgentRunAcceptedResponse,
     AgentRunRequest,
+    AgentRunsHistoryResponse,
     AgentRunStatusResponse,
     EngineMetrics,
     ErrorDetail,
@@ -33,7 +39,11 @@ from api.dto import (
     SessionState,
     SuccessEnvelope,
 )
+from core.memory.database import db_manager
 from core.reasoning.engine import ReasoningExecutionEngine
+from core.reasoning.persistence_service import active_run_id
+from core.security.auth_context import RequestContext
+from core.tools.execution_repository import ExecutionRepository
 
 router = APIRouter()
 
@@ -43,10 +53,19 @@ async def run_agent_in_background(
     goal: str,
     budget: float,
     reasoning_engine: ReasoningExecutionEngine,
-    agent_runs: Dict[uuid.UUID, AgentRunStatusResponse],
+    repository: ExecutionRepository,
 ) -> None:
-    """Background task executing the agent run and updating its lifecycle state."""
-    agent_runs[run_id].state = SessionState.EXECUTING
+    """Background task executing the agent run and updating its persistent state."""
+    # Set the ContextVar for the persistence service to associate telemetry trace with this run
+    active_run_id.set(run_id)
+
+    async with db_manager.session() as session:
+        async with session.begin():
+            await repository.update_agent_run_state(
+                run_id=run_id,
+                state=SessionState.EXECUTING.value,
+                session=session,
+            )
 
     try:
         result = await reasoning_engine.execute_goal(goal=goal, budget=budget)
@@ -59,7 +78,7 @@ async def run_agent_in_background(
 
         failure_type = None
         if status != "SUCCESS":
-            agent_runs[run_id].state = SessionState.FAILED
+            state = SessionState.FAILED
             failure_str = result.get("failure_type", None)
             if failure_str:
                 try:
@@ -67,14 +86,27 @@ async def run_agent_in_background(
                 except ValueError:
                     failure_type = FailureType.PlannerFailure
         else:
-            agent_runs[run_id].state = SessionState.COMPLETED
+            state = SessionState.COMPLETED
 
-        agent_runs[run_id].metrics = metrics
-        agent_runs[run_id].failure_type = failure_type
+        async with db_manager.session() as session:
+            async with session.begin():
+                await repository.update_agent_run_state(
+                    run_id=run_id,
+                    state=state.value,
+                    metrics=metrics.model_dump(mode="json") if metrics else None,
+                    failure_type=failure_type.value if failure_type else None,
+                    session=session,
+                )
 
     except Exception:
-        agent_runs[run_id].state = SessionState.FAILED
-        agent_runs[run_id].failure_type = FailureType.PlannerFailure
+        async with db_manager.session() as session:
+            async with session.begin():
+                await repository.update_agent_run_state(
+                    run_id=run_id,
+                    state=SessionState.FAILED.value,
+                    failure_type=FailureType.PlannerFailure.value,
+                    session=session,
+                )
 
 
 @router.post("/agent/run", status_code=202)
@@ -82,32 +114,35 @@ async def run_agent(
     request: Request,
     payload: AgentRunRequest,
     background_tasks: BackgroundTasks,
+    _ctx: RequestContext = Depends(require_permissions(["agent.execute"])),
     reasoning_engine: ReasoningExecutionEngine = Depends(get_reasoning_engine),
-    agent_runs: Dict[uuid.UUID, AgentRunStatusResponse] = Depends(get_agent_runs),
+    repository: ExecutionRepository = Depends(get_execution_repository),
 ) -> Response:
     """POST /api/v1/agent/run endpoint.
 
     Schedules an asynchronous agent execution via FastAPI BackgroundTasks and
-    immediately returns a 202 accepted response.
+    immediately returns a 202 accepted response, writing the initial run log to the DB.
     """
     run_id = uuid.uuid4()
     trace_id = uuid.uuid4()
 
-    # Initial status is PLANNING (queued/init state)
-    status_response = AgentRunStatusResponse(
-        run_id=run_id,
-        state=SessionState.PLANNING,
-    )
-    agent_runs[run_id] = status_response
+    async with db_manager.session() as session:
+        async with session.begin():
+            await repository.save_agent_run(
+                run_id=run_id,
+                goal=payload.goal,
+                budget=payload.budget,
+                state=SessionState.PLANNING.value,
+                session=session,
+            )
 
-    # Schedule background worker execution
     background_tasks.add_task(
         run_agent_in_background,
         run_id=run_id,
         goal=payload.goal,
         budget=payload.budget,
         reasoning_engine=reasoning_engine,
-        agent_runs=agent_runs,
+        repository=repository,
     )
 
     accepted_data = AgentRunAcceptedResponse(
@@ -116,10 +151,7 @@ async def run_agent(
     )
 
     request_id = getattr(request.state, "request_id", None)
-    if request_id is not None:
-        meta = MetaBlock(request_id=request_id)
-    else:
-        meta = MetaBlock()
+    meta = MetaBlock(request_id=request_id) if request_id is not None else MetaBlock()
 
     envelope = SuccessEnvelope[AgentRunAcceptedResponse](data=accepted_data, meta=meta)
     return JSONResponse(
@@ -132,19 +164,19 @@ async def run_agent(
 async def get_run_status(
     request: Request,
     run_id: uuid.UUID,
-    agent_runs: Dict[uuid.UUID, AgentRunStatusResponse] = Depends(get_agent_runs),
+    _ctx: RequestContext = Depends(require_permissions(["agent.read"])),
+    repository: ExecutionRepository = Depends(get_execution_repository),
+    db_session: AsyncSession = Depends(get_db_session),
 ) -> Response:
     """GET /api/v1/agent/runs/{run_id} endpoint.
 
-    Retrieves in-memory status metrics and states for the specified run session.
+    Retrieves database status metrics and states for the specified run session.
     """
     request_id = getattr(request.state, "request_id", None)
-    if request_id is not None:
-        meta = MetaBlock(request_id=request_id)
-    else:
-        meta = MetaBlock()
+    meta = MetaBlock(request_id=request_id) if request_id is not None else MetaBlock()
 
-    if run_id not in agent_runs:
+    run_model = await repository.get_agent_run(run_id, db_session)
+    if run_model is None:
         err_detail = ErrorDetail(
             code="RUN_NOT_FOUND",
             message=f"Agent run session with ID '{run_id}' was not found.",
@@ -155,9 +187,59 @@ async def get_run_status(
             content=err_envelope.model_dump(mode="json"),
         )
 
-    envelope = SuccessEnvelope[AgentRunStatusResponse](
-        data=agent_runs[run_id], meta=meta
+    metrics_data = None
+    if run_model.metrics:
+        metrics_data = EngineMetrics(**run_model.metrics)
+
+    status_data = AgentRunStatusResponse(
+        run_id=run_model.id,
+        state=SessionState(run_model.state),
+        metrics=metrics_data,
+        failure_type=FailureType(run_model.failure_type)
+        if run_model.failure_type
+        else None,
     )
+
+    envelope = SuccessEnvelope[AgentRunStatusResponse](data=status_data, meta=meta)
+    return JSONResponse(
+        status_code=200,
+        content=envelope.model_dump(mode="json"),
+    )
+
+
+@router.get("/agent/runs")
+async def list_runs(
+    request: Request,
+    limit: int = 20,
+    offset: int = 0,
+    _ctx: RequestContext = Depends(require_permissions(["agent.read"])),
+    repository: ExecutionRepository = Depends(get_execution_repository),
+    db_session: AsyncSession = Depends(get_db_session),
+) -> Response:
+    """GET /api/v1/agent/runs endpoint for history query (Phase 15)."""
+    runs_models = await repository.list_agent_runs(limit, offset, db_session)
+
+    data_list = []
+    for run in runs_models:
+        metrics_data = None
+        if run.metrics:
+            metrics_data = EngineMetrics(**run.metrics)
+        data_list.append(
+            AgentRunStatusResponse(
+                run_id=run.id,
+                state=SessionState(run.state),
+                metrics=metrics_data,
+                failure_type=FailureType(run.failure_type)
+                if run.failure_type
+                else None,
+            )
+        )
+
+    request_id = getattr(request.state, "request_id", None)
+    meta = MetaBlock(request_id=request_id) if request_id is not None else MetaBlock()
+
+    runs_history = AgentRunsHistoryResponse(runs=data_list)
+    envelope = SuccessEnvelope[AgentRunsHistoryResponse](data=runs_history, meta=meta)
     return JSONResponse(
         status_code=200,
         content=envelope.model_dump(mode="json"),

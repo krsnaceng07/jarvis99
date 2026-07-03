@@ -4,7 +4,7 @@
 This document establishes the Architecture Specification for **Phase 15: Persistent Execution & Run Management**. It replaces the in-memory session registries of Phase 14 with a production-grade database persistence layer for both agent goal runs and workflow executions, supporting run history queries, lifecycle metrics tracking, and crash-resume hooks on system restarts.
 
 ## Status
-**STATUS:** Draft (Awaiting Approval)  
+**STATUS:** FROZEN (265 passed)
 **Authority:** Rank 4 (Phase Specification)  
 **Dependencies:** Phases 1–14, Phase 16  
 

@@ -36,12 +36,22 @@ __all__ = [
     # Request DTOs
     "AgentRunRequest",
     "WorkflowSubmitRequest",
+    "LoginRequest",
+    "RefreshRequest",
+    "LogoutRequest",
+    "ApiKeyCreateRequest",
     # Response payload DTOs (the "data" field inside SuccessEnvelope)
     "AgentRunAcceptedResponse",
     "AgentRunStatusResponse",
     "WorkflowSubmitResponse",
     "WorkflowStatusResponse",
+    "AgentRunsHistoryResponse",
+    "WorkflowExecutionsHistoryResponse",
     "HealthResponse",
+    "LoginResponse",
+    "LogoutResponse",
+    "UserProfileResponse",
+    "ApiKeyCreateResponse",
     # Error DTO
     "ErrorDetail",
     # Envelope DTOs (frozen wrappers - C1/C2)
@@ -131,6 +141,20 @@ class WorkflowStatusResponse(BaseModel):
     api_version: Literal["v1"] = API_VERSION
 
 
+class AgentRunsHistoryResponse(BaseModel):
+    """Wrapper DTO carrying a list of AgentRunStatusResponse items."""
+
+    runs: list[AgentRunStatusResponse]
+    api_version: Literal["v1"] = API_VERSION
+
+
+class WorkflowExecutionsHistoryResponse(BaseModel):
+    """Wrapper DTO carrying a list of WorkflowStatusResponse items."""
+
+    executions: list[WorkflowStatusResponse]
+    api_version: Literal["v1"] = API_VERSION
+
+
 class HealthResponse(BaseModel):
     """Returned on GET /api/v1/health (200 healthy / 503 degraded).
 
@@ -188,3 +212,68 @@ class ErrorEnvelope(BaseModel):
     success: Literal[False] = False
     error: ErrorDetail
     meta: MetaBlock = Field(default_factory=MetaBlock)
+
+
+# ---------------------------------------------------------------------------
+# Phase 17 Security DTOs
+# ---------------------------------------------------------------------------
+
+
+class LoginRequest(BaseModel):
+    """Inbound request to login user."""
+
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    """Returned on successful login, containing session tokens."""
+
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    api_version: Literal["v1"] = API_VERSION
+
+
+class RefreshRequest(BaseModel):
+    """Inbound request to rotate session tokens using refresh token."""
+
+    refresh_token: str
+
+
+class LogoutRequest(BaseModel):
+    """Inbound request to log out session."""
+
+    refresh_token: str
+
+
+class ApiKeyCreateRequest(BaseModel):
+    """Inbound request to generate a new programmatic API Key."""
+
+    name: str
+
+
+class ApiKeyCreateResponse(BaseModel):
+    """Returned on successful API Key creation, containing the single-view raw key."""
+
+    id: UUID
+    name: str
+    raw_key: str
+
+
+class LogoutResponse(BaseModel):
+    """Returned on successful logout."""
+
+    message: str
+    api_version: Literal["v1"] = API_VERSION
+
+
+class UserProfileResponse(BaseModel):
+    """Authenticated user profile returned by GET /api/v1/users/me."""
+
+    user_id: UUID
+    username: str
+    roles: list[str]
+    permissions: list[str]
+    authentication_method: Literal["jwt", "api_key"]
+    api_version: Literal["v1"] = API_VERSION

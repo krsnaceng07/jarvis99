@@ -1,0 +1,68 @@
+# =============================================================================
+# LOCAL PROJECT OVERRIDE — Architecture Linter config
+# Phase: 19 / M5.5.1.C | Status: LOCAL OVERRIDE (Decision 3 / C2)
+# Spec:   docs/governance/architecture_linter.md (frozen)
+# Date:   2026-07-03 (per architect decision)
+# =============================================================================
+# This file extends the frozen `.architecture-linter.toml` default exclude
+# list with project-local Python ecosystem paths that should never be
+# scanned (they are in .gitignore but not in the spec's default excludes).
+#
+# USAGE:
+#   python -m scripts.architecture_linter \
+#           --config .architecture-linter.local.toml --path .
+#
+# TO REMOVE:
+#   delete this file; the linter will fall back to .architecture-linter.toml
+#
+# DO NOT add rules here. Use the frozen config for [rules.*].
+# DO NOT change contracts. Spec change requires CR.
+# =============================================================================
+
+[general]
+# Project-local exclude paths. These are in addition to the frozen spec's
+# default excludes (tests/, archive/, scripts/).
+exclude = [
+    ".venv/",
+    "node_modules/",
+    "dist/",
+    "build/",
+    "__pycache__/",
+    ".tox/",
+    ".nox/",
+    ".mypy_cache/",
+    ".pytest_cache/",
+    ".eggs/",
+    "*.egg-info/",
+    ".audit_tmp/",
+]
+
+[output]
+format = "text"
+fail_on = "error"
+
+# =============================================================================
+# Rule enable/severity (MIRRORED from .architecture-linter.toml)
+# =============================================================================
+# KNOWN LIMITATION (per AGENTS.md B-approved governance):
+# The linter does NOT merge the local config with the default config. Each
+# config file is parsed independently. Therefore this section MUST mirror
+# the [rules.*] sections of the default .architecture-linter.toml. If the
+# default config is updated (e.g. a new rule category is added in M5.5.1.E
+# or F), this file must be updated to match.
+#
+# When M5.5.1.E and F add NDE/NUC/NCP rules, copy those [rules.*] sections
+# here too (or remove the local config entirely and rely on the default).
+# =============================================================================
+
+[rules.LR]
+enabled = true
+severity = "error"
+
+[rules.NBR]
+enabled = true
+severity = "error"
+
+[rules.NSD]
+enabled = true
+severity = "error"

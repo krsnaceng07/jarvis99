@@ -122,7 +122,7 @@ class PostgresMemoryRepository(IMemoryRepository):
 
         # Increment version and update stamp
         db_chunk.version = current_version + 1  # type: ignore[assignment]
-        db_chunk.updated_at = datetime.utcnow()  # type: ignore[assignment]
+        db_chunk.updated_at = datetime.now(timezone.utc)  # type: ignore[assignment]
 
         self.session.add(db_chunk)
         await self.session.flush()
@@ -140,7 +140,7 @@ class PostgresMemoryRepository(IMemoryRepository):
             return False
 
         db_chunk.is_deleted = True  # type: ignore[assignment]
-        db_chunk.updated_at = datetime.utcnow()  # type: ignore[assignment]
+        db_chunk.updated_at = datetime.now(timezone.utc)  # type: ignore[assignment]
 
         self.session.add(db_chunk)
         await self.session.flush()
@@ -295,7 +295,7 @@ class PersonalMemoryRepository:
                 (
                     datetime.now(timezone.utc)
                     if hasattr(record, "updated_at")
-                    else datetime.utcnow()
+                    else datetime.now(timezone.utc)
                 ),
             )
             self.session.add(record)

@@ -3,7 +3,7 @@
 SQLAlchemy database models for agent sessions, sources, and chunk persistence.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from sqlalchemy import (
@@ -14,13 +14,18 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Uuid,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import declarative_base, relationship
 
-from core.memory.interfaces import MemoryChunkDTO, MemorySourceDTO
+from core.memory.interfaces import (
+    APIBillingLogDTO,
+    MemoryChunkDTO,
+    MemorySourceDTO,
+)
 
 Base = declarative_base()
 
@@ -35,9 +40,9 @@ class AgentSession(Base):  # type: ignore[misc,valid-type]
     config = Column(
         JSON().with_variant(JSONB, "postgresql"), nullable=False, default=dict
     )
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
 
 
@@ -49,7 +54,7 @@ class MemorySource(Base):  # type: ignore[misc,valid-type]
     id = Column(Uuid(as_uuid=True), primary_key=True)
     source_type = Column(String(50), nullable=False)
     uri = Column(String(500), nullable=False)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     agent_id = Column(String(100), nullable=False)
     confidence = Column(Float, default=1.0, nullable=False)
     version = Column(String(50), default="1.0.0", nullable=False)
@@ -75,9 +80,9 @@ class MemoryChunk(Base):  # type: ignore[misc,valid-type]
         nullable=False,
         default=dict,
     )
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
     is_deleted = Column(Boolean, default=False, nullable=False)
     version = Column(Integer, default=1, nullable=False)
@@ -119,4 +124,33 @@ def to_chunk_dto(chunk: Any) -> MemoryChunkDTO:
         updated_at=chunk.updated_at,
         is_deleted=chunk.is_deleted,
         version=chunk.version,
+    )
+
+
+class APIBillingLog(Base):  # type: ignore[misc,valid-type]
+    """Represents persistent records of model API calls and costs."""
+
+    __tablename__ = "api_billing_logs"
+
+    id = Column(Uuid(as_uuid=True), primary_key=True)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    provider_name = Column(String(100), nullable=False)
+    model_name = Column(String(100), nullable=False)
+    prompt_tokens = Column(Integer, nullable=False)
+    completion_tokens = Column(Integer, nullable=False)
+    cost = Column(Numeric(18, 10), nullable=False)
+
+
+def to_billing_log_dto(log: Any) -> APIBillingLogDTO:
+    """Convert APIBillingLog ORM model to APIBillingLogDTO."""
+    from decimal import Decimal
+
+    return APIBillingLogDTO(
+        id=log.id,
+        timestamp=log.timestamp,
+        provider_name=log.provider_name,
+        model_name=log.model_name,
+        prompt_tokens=log.prompt_tokens,
+        completion_tokens=log.completion_tokens,
+        cost=Decimal(str(log.cost)),
     )

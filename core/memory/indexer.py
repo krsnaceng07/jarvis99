@@ -104,7 +104,7 @@ class MemoryIndexer:
                 node = MemoryNodeDTO(
                     id=chunk_id,
                     name=node_name,
-                    type="chunk",
+                    type="Concept",
                     properties={"source_id": str(chunk.source_id)},
                 )
                 await self.graph_repo.create_node(node)

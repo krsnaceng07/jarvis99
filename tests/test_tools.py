@@ -426,10 +426,10 @@ async def test_immutable_auditing_integrity() -> None:
     assert excinfo.value.code == "SKILL_009"
     assert "tampering" in excinfo.value.message.lower()
 
-    # Duplicate UUID insert raises JarvisMemoryError due to transaction wrapping
-    from core.exceptions import JarvisMemoryError
+    # Duplicate UUID insert is rejected by the immutable audit logger
+    from core.exceptions import JarvisMemoryError, JarvisSystemError
 
-    with pytest.raises(JarvisMemoryError) as excinfo_dup:
+    with pytest.raises(JarvisSystemError) as excinfo_dup:
         await logger.log_invocation(
             audit_id=audit_id,  # Duplicate!
             tool_name="test-tool",
@@ -437,7 +437,7 @@ async def test_immutable_auditing_integrity() -> None:
             arguments={"arg": 1},
             result={"stdout": "ok"},
         )
-    assert excinfo_dup.value.code == "SYSTEM_999"
+    assert excinfo_dup.value.code == "SYSTEM_001"
 
     # Force database exceptions to test uninitialized handler paths
     await db_manager.close()

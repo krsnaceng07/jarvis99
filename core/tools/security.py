@@ -6,7 +6,7 @@ Defines the PermissionGatekeeper supporting human-in-the-loop approvals, secret 
 import asyncio
 import hashlib
 import os
-from typing import Dict, List
+from typing import Dict, List, Set
 from uuid import UUID, uuid4
 
 from core.exceptions import JarvisSkillError
@@ -28,6 +28,7 @@ class PermissionGatekeeper:
         self.event_bus = event_bus
         self.approval_timeout = approval_timeout
         self._pending_approvals: Dict[UUID, asyncio.Future[bool]] = {}
+        self.granted_permissions: Set[str] = set()
 
     def get_permission_level(self, permission_name: str) -> str:
         """Map a permission capability to its matching L0-L3 tier level.
@@ -62,6 +63,10 @@ class PermissionGatekeeper:
         Raises:
             JarvisSkillError: If the permission is rejected, or request times out.
         """
+        cache_key = f"{tool_name}:{permission_name}:{caller_id}"
+        if cache_key in self.granted_permissions:
+            return
+
         level = self.get_permission_level(permission_name)
         if level in {"L0", "L1"}:
             return  # Autonomously authorized
@@ -94,6 +99,7 @@ class PermissionGatekeeper:
                     code="SKILL_004",
                     message=f"Human permission request REJECTED for tool '{tool_name}' ({permission_name}).",
                 )
+            self.granted_permissions.add(cache_key)
         except asyncio.TimeoutError:
             raise JarvisSkillError(
                 code="SKILL_004",

@@ -63,11 +63,52 @@ class MemoryRetrievalConfig(BaseModel):
     semantic_top_k: int = Field(default=15)
 
 
+class MemoryScoringConfig(BaseModel):
+    """Configuration mapping for memory ranking weights.
+
+    Implements the frozen formula from Phase 19 spec §3.1:
+        FinalScore = w_recency * Recency
+                   + w_semantic * SemanticSimilarity
+                   + w_confidence * Confidence
+                   + w_importance * Importance
+                   + w_frequency * Frequency
+                   + w_trust * Trust
+                   + w_pin * UserPin
+
+    Defaults match Phase 19 spec §3.2. All 7 weights are required.
+    """
+
+    w_recency: float = Field(default=0.25, ge=0.0, le=1.0)
+    w_semantic: float = Field(default=0.20, ge=0.0, le=1.0)
+    w_frequency: float = Field(default=0.10, ge=0.0, le=1.0)
+    w_confidence: float = Field(default=0.20, ge=0.0, le=1.0)
+    w_importance: float = Field(default=0.15, ge=0.0, le=1.0)
+    w_trust: float = Field(default=0.05, ge=0.0, le=1.0)
+    w_pin: float = Field(default=0.05, ge=0.0, le=1.0)
+    lambda_decay: float = Field(default=0.05, ge=0.0)
+    max_access_count: int = Field(default=1000, ge=1)
+
+
+class MemoryRetentionConfig(BaseModel):
+    """Configuration mapping for memory tier retention and promotion logic."""
+
+    l1_ttl_minutes: int = Field(default=10)
+    l1_max_items: int = Field(default=50)
+    l2_ttl_hours: int = Field(default=24)
+    l2_max_items: int = Field(default=200)
+    l2_promotion_threshold: float = Field(default=0.7)
+    l3_decay_threshold: float = Field(default=0.2)
+    archive_retention_days: int = Field(default=30)
+    promotion_throttle_seconds: int = Field(default=60)
+
+
 class MemoryConfig(BaseModel):
     """Configuration mapping for personal memory settings."""
 
     disable_auto_memory: bool = Field(default=False)
     retrieval: MemoryRetrievalConfig = Field(default_factory=MemoryRetrievalConfig)
+    scoring: MemoryScoringConfig = Field(default_factory=MemoryScoringConfig)
+    retention: MemoryRetentionConfig = Field(default_factory=MemoryRetentionConfig)
 
 
 class Settings(BaseSettings):

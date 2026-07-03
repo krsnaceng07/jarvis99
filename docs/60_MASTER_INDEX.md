@@ -98,6 +98,11 @@ Applies to all files written under the `docs/` folder in Phase 0.
 - [74_PHASE_1_12_MASTER_SPECIFICATION.md](file:///e:/jarvis/docs/74_PHASE_1_12_MASTER_SPECIFICATION.md) – Consolidated Phase 1–12 master spec. **STATUS: FROZEN**
 - [75_PHASE_13_MASTER_SPECIFICATION.md](file:///e:/jarvis/docs/75_PHASE_13_MASTER_SPECIFICATION.md) – Phase 13 Tool Ecosystem & Workflow Automation spec. **STATUS: FROZEN**
 - [76_PHASE_14_API_GATEWAY_SPECIFICATION.md](file:///e:/jarvis/docs/76_PHASE_14_API_GATEWAY_SPECIFICATION.md) – Phase 14 API Gateway Layer spec. **STATUS: FROZEN**
+- [77_PHASE_15_PERSISTENT_EXECUTION_SPECIFICATION.md](file:///e:/jarvis/docs/77_PHASE_15_PERSISTENT_EXECUTION_SPECIFICATION.md) – Phase 15 Persistent Execution & Run Management spec. **STATUS: FROZEN**
+- [78_PHASE_17_AUTHENTICATION_AUTHORIZATION_SPECIFICATION.md](file:///e:/jarvis/docs/78_PHASE_17_AUTHENTICATION_AUTHORIZATION_SPECIFICATION.md) – Phase 17 Authentication, Authorization & API Security spec. **STATUS: FROZEN**
+- [79_PHASE_18_DYNAMIC_SKILL_FRAMEWORK_SPECIFICATION.md](file:///e:/jarvis/docs/79_PHASE_18_DYNAMIC_SKILL_FRAMEWORK_SPECIFICATION.md) – Phase 18 Dynamic Skill Framework spec. **STATUS: FROZEN**
+- [80_PHASE_19_REAL_MEMORY_ARCHITECTURE_SPECIFICATION.md](file:///e:/jarvis/docs/80_PHASE_19_REAL_MEMORY_ARCHITECTURE_SPECIFICATION.md) – Phase 19 Real Memory Architecture spec. **STATUS: FROZEN**
+- [81_PHASE_19_IMPLEMENTATION_PLAN.md](file:///e:/jarvis/docs/81_PHASE_19_IMPLEMENTATION_PLAN.md) – Phase 19 Real Memory Architecture implementation plan. **STATUS: FROZEN**
 
 ## Responsibilities
 - **Documentation Agent:** Manages links updates in this index after compiling documentation files.

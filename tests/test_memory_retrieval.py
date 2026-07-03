@@ -300,7 +300,7 @@ async def test_knowledge_graph_edge_cases() -> None:
         node_dto = MemoryNodeDTO(
             id=node_id,
             name="Source Node",
-            type="concept",
+            type="Concept",
             properties={"a": 1},
         )
         created_node = await repo.create_node(node_dto)
@@ -324,14 +324,14 @@ async def test_knowledge_graph_edge_cases() -> None:
 
         # 7. Create target node and edge to retrieve relations
         target_id = uuid4()
-        target_dto = MemoryNodeDTO(id=target_id, name="Target Node", type="concept")
+        target_dto = MemoryNodeDTO(id=target_id, name="Target Node", type="Concept")
         await repo.create_node(target_dto)
 
         relation_dto = MemoryRelationDTO(
             id=uuid4(),
             source_node_id=node_id,
             target_node_id=target_id,
-            relation_type="links_to",
+            relation_type="related_to",
             weight=0.8,
             confidence=0.9,
         )
@@ -340,7 +340,7 @@ async def test_knowledge_graph_edge_cases() -> None:
         # Retrieve relations
         rels = await repo.get_relations(node_id)
         assert len(rels) == 1
-        assert rels[0].relation_type == "links_to"
+        assert rels[0].relation_type == "related_to"
         assert rels[0].source_node_id == node_id
         assert rels[0].target_node_id == target_id
 

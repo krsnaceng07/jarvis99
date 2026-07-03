@@ -39,3 +39,31 @@ class JarvisAgentError(JarvisError):
 
 class JarvisSkillError(JarvisError):
     """Exceptions originating from Skill execution and sandbox layers."""
+
+
+class ModelProviderError(JarvisError):
+    """Base exception for all model provider failures."""
+
+
+class AuthenticationError(ModelProviderError):
+    """Raised when API credentials or keys are invalid."""
+
+
+class RateLimitError(ModelProviderError):
+    """Raised when rate limits (RPM/TPM) are exceeded."""
+
+
+class TimeoutError(ModelProviderError):
+    """Raised when requests to a model provider time out."""
+
+
+class BudgetExceededError(ModelProviderError):
+    """Raised when spending limits are breached."""
+
+
+class TransportError(ModelProviderError):
+    """Raised when underlying network/connection issues occur."""
+
+
+class InvalidResponseError(ModelProviderError):
+    """Raised when response payloads are malformed or invalid."""

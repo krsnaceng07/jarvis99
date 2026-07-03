@@ -4,7 +4,8 @@ Declares type-safe data transfer objects and repository interface contracts.
 """
 
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
@@ -40,7 +41,7 @@ class MemorySourceDTO(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     source_type: str  # 'codebase', 'user_input', 'web_page', 'terminal'
     uri: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     agent_id: str
     confidence: float = 1.0
     version: str = "1.0.0"
@@ -56,8 +57,8 @@ class MemoryChunkDTO(BaseModel):
     token_count: int
     embedding: Optional[List[float]] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_deleted: bool = False
     version: int = 1
 
@@ -70,8 +71,8 @@ class MemoryNodeDTO(BaseModel):
     name: str
     type: str  # 'concept', 'code_symbol', 'file', 'user_preference'
     properties: Dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class MemoryRelationDTO(BaseModel):
@@ -84,7 +85,19 @@ class MemoryRelationDTO(BaseModel):
     weight: float = 1.0
     confidence: float = 1.0
     properties: Dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class APIBillingLogDTO(BaseModel):
+    """DTO representing a persistent model provider billing log entry."""
+
+    id: UUID = Field(default_factory=uuid4)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    provider_name: str
+    model_name: str
+    prompt_tokens: int
+    completion_tokens: int
+    cost: Decimal
 
 
 # =====================================================================

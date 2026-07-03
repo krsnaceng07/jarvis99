@@ -4,7 +4,7 @@ Orchestrates Working, Session, and Long-Term memory tiers and publishes commit e
 """
 
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
@@ -79,7 +79,7 @@ class MemoryService:
             # Increment access count to track freshness
             meta = dict(existing.metadata)
             meta["access_count"] = int(meta.get("access_count", 1)) + 1
-            meta["last_accessed"] = datetime.utcnow().isoformat()
+            meta["last_accessed"] = datetime.now(timezone.utc).isoformat()
             await self.memory_repo.update_chunk(
                 existing.id, existing.version, {"metadata": meta}
             )

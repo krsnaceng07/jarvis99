@@ -13,8 +13,11 @@ from core.exceptions import JarvisSystemError
 from core.security.vault import VaultManager
 
 
-def test_settings_load_defaults() -> None:
+def test_settings_load_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     """Verify settings fallback to correct defaults when no file is present."""
+    monkeypatch.delenv("JARVIS_SYSTEM__ENVIRONMENT", raising=False)
+    monkeypatch.delenv("JARVIS_DATABASE__HOST", raising=False)
+    monkeypatch.delenv("JARVIS_DATABASE__NAME", raising=False)
     settings = Settings.load_settings()
     assert settings.system.environment == "production"
     assert not settings.system.debug

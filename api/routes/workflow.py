@@ -1,11 +1,11 @@
 """
-PHASE: 14
+PHASE: 15
 STATUS: IMPLEMENTATION
 SPECIFICATION:
-    docs/76_PHASE_14_API_GATEWAY_SPECIFICATION.md
+    docs/77_PHASE_15_PERSISTENT_EXECUTION_SPECIFICATION.md
 
 IMPLEMENTATION PLAN:
-    C:/Users/kcs23/.gemini/antigravity-ide/brain/721908f6-e992-4e3d-9eca-2fca584e321e/implementation_plan.md
+    docs/implementation_plan.md
 
 AUTHORITATIVE:
     NO
@@ -22,8 +22,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.dependencies import (
     get_db_session,
+    get_execution_repository,
     get_workflow_repository,
     get_workflow_validator,
+    require_permissions,
 )
 from api.dto import (
     ErrorDetail,
@@ -34,7 +36,9 @@ from api.dto import (
     WorkflowSubmitRequest,
     WorkflowSubmitResponse,
 )
+from core.security.auth_context import RequestContext
 from core.tools.compiler import WorkflowCompiler
+from core.tools.execution_repository import ExecutionRepository
 from core.tools.repository import WorkflowRepository
 from core.tools.validator import WorkflowValidator
 from core.tools.workflow_dto import WorkflowPlan, WorkflowState
@@ -46,6 +50,7 @@ router = APIRouter()
 async def submit_workflow(
     request: Request,
     payload: WorkflowSubmitRequest,
+    _ctx: RequestContext = Depends(require_permissions(["workflow.execute"])),
     validator: WorkflowValidator = Depends(get_workflow_validator),
     repository: WorkflowRepository = Depends(get_workflow_repository),
     session: AsyncSession = Depends(get_db_session),
@@ -96,12 +101,15 @@ async def submit_workflow(
 async def get_workflow_status(
     request: Request,
     workflow_id: uuid.UUID,
+    _ctx: RequestContext = Depends(require_permissions(["workflow.read"])),
     repository: WorkflowRepository = Depends(get_workflow_repository),
+    exec_repository: ExecutionRepository = Depends(get_execution_repository),
     session: AsyncSession = Depends(get_db_session),
 ) -> Response:
     """GET /api/v1/workflows/{workflow_id} endpoint.
 
     Fetches the compilation status and state metrics of the specified workflow.
+    Phase 15 upgrade: queries the latest execution record from the database.
     """
     request_id = getattr(request.state, "request_id", None)
     if request_id is not None:
@@ -123,12 +131,26 @@ async def get_workflow_status(
             content=err_envelope.model_dump(mode="json"),
         )
 
-    # In Phase 14, workflow execution trigger is out of scope.
-    # Therefore, status is always pending/ready.
+    # Phase 15: query latest execution from persistence layer
+    latest_exec = await exec_repository.get_latest_workflow_execution(
+        workflow_id, session
+    )
+
+    if latest_exec is not None:
+        state = WorkflowState(latest_exec.state)
+        metrics = None
+        if latest_exec.metrics:
+            from core.tools.workflow_dto import WorkflowMetrics
+
+            metrics = WorkflowMetrics(**latest_exec.metrics)
+    else:
+        state = WorkflowState.PENDING
+        metrics = None
+
     status_data = WorkflowStatusResponse(
         workflow_id=workflow_id,
-        state=WorkflowState.PENDING,
-        metrics=None,
+        state=state,
+        metrics=metrics,
     )
 
     envelope = SuccessEnvelope[WorkflowStatusResponse](data=status_data, meta=meta)

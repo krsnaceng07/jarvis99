@@ -13,22 +13,23 @@ AUTHORITATIVE:
 
 import uuid
 from datetime import datetime, timezone
+
 import pytest
 from pydantic import ValidationError
 
 from api.dto import (
-    AgentRunRequest,
-    WorkflowSubmitRequest,
     AgentRunAcceptedResponse,
+    AgentRunRequest,
     AgentRunStatusResponse,
-    WorkflowSubmitResponse,
-    WorkflowStatusResponse,
-    HealthResponse,
     ErrorDetail,
-    SuccessEnvelope,
     ErrorEnvelope,
+    HealthResponse,
     SessionState,
+    SuccessEnvelope,
     WorkflowState,
+    WorkflowStatusResponse,
+    WorkflowSubmitRequest,
+    WorkflowSubmitResponse,
 )
 
 
@@ -125,7 +126,7 @@ def test_envelopes_validation() -> None:
     run_id = uuid.uuid4()
     trace_id = uuid.uuid4()
     data_payload = AgentRunAcceptedResponse(run_id=run_id, trace_id=trace_id)
-    
+
     # Success envelope
     envelope = SuccessEnvelope[AgentRunAcceptedResponse](data=data_payload)
     assert envelope.success is True
@@ -144,9 +145,11 @@ def test_envelopes_validation() -> None:
 
 def test_api_dependencies_fail_fast() -> None:
     import api.dependencies
+
     api.dependencies._kernel = None
 
     from core.exceptions import JarvisSystemError
+
     with pytest.raises(JarvisSystemError) as exc:
         api.dependencies._require_kernel()
     assert exc.value.code == "SYSTEM_001"
@@ -154,18 +157,19 @@ def test_api_dependencies_fail_fast() -> None:
 
 def test_api_dependencies_successful_resolutions() -> None:
     from unittest.mock import MagicMock
+
     from api.dependencies import (
-        set_kernel,
-        get_kernel,
-        get_settings,
+        get_agent_runs,
         get_event_bus,
         get_health_monitor,
-        get_tool_runtime,
+        get_kernel,
         get_reasoning_engine,
-        get_workflow_validator,
-        get_workflow_repository,
+        get_settings,
+        get_tool_runtime,
         get_workflow_orchestrator,
-        get_agent_runs,
+        get_workflow_repository,
+        get_workflow_validator,
+        set_kernel,
     )
     from core.kernel import Kernel
 
@@ -203,12 +207,22 @@ def test_api_dependencies_successful_resolutions() -> None:
 
 
 def test_map_exception_validation_error() -> None:
-    from fastapi.exceptions import RequestValidationError
-    from api.middleware import map_exception_to_envelope
     import uuid
 
+    from fastapi.exceptions import RequestValidationError
+
+    from api.middleware import map_exception_to_envelope
+
     req_id = uuid.uuid4()
-    exc = RequestValidationError(errors=[{"loc": ("body", "goal"), "msg": "field required", "type": "value_error.missing"}])
+    exc = RequestValidationError(
+        errors=[
+            {
+                "loc": ("body", "goal"),
+                "msg": "field required",
+                "type": "value_error.missing",
+            }
+        ]
+    )
     status, env = map_exception_to_envelope(exc, req_id)
     assert status == 422
     assert env.success is False
@@ -217,18 +231,19 @@ def test_map_exception_validation_error() -> None:
 
 
 def test_map_exception_jarvis_errors() -> None:
+    import uuid
+
     from api.middleware import map_exception_to_envelope
     from core.exceptions import (
-        JarvisSystemError,
-        JarvisMemoryError,
-        JarvisAgentError,
-        JarvisSkillError,
-        BudgetExceededError,
-        RateLimitError,
         AuthenticationError,
+        BudgetExceededError,
+        JarvisAgentError,
+        JarvisMemoryError,
+        JarvisSkillError,
+        JarvisSystemError,
+        RateLimitError,
         TimeoutError,
     )
-    import uuid
 
     req_id = uuid.uuid4()
 
@@ -248,20 +263,47 @@ def test_map_exception_jarvis_errors() -> None:
     assert "stack_trace" not in env.error.details
 
     # Test status code mappings
-    assert map_exception_to_envelope(JarvisSystemError("SYS_001", "Sys error"), req_id)[0] == 500
-    assert map_exception_to_envelope(JarvisAgentError("AGN_001", "Agent error"), req_id)[0] == 422
-    assert map_exception_to_envelope(JarvisSkillError("SKL_001", "Skill error"), req_id)[0] == 500
-    assert map_exception_to_envelope(BudgetExceededError("MOD_001", "Budget error"), req_id)[0] == 402
-    assert map_exception_to_envelope(RateLimitError("MOD_002", "Rate error"), req_id)[0] == 429
-    assert map_exception_to_envelope(AuthenticationError("MOD_003", "Auth error"), req_id)[0] == 401
-    assert map_exception_to_envelope(TimeoutError("MOD_004", "Timeout error"), req_id)[0] == 504
+    assert (
+        map_exception_to_envelope(JarvisSystemError("SYS_001", "Sys error"), req_id)[0]
+        == 500
+    )
+    assert (
+        map_exception_to_envelope(JarvisAgentError("AGN_001", "Agent error"), req_id)[0]
+        == 422
+    )
+    assert (
+        map_exception_to_envelope(JarvisSkillError("SKL_001", "Skill error"), req_id)[0]
+        == 500
+    )
+    assert (
+        map_exception_to_envelope(
+            BudgetExceededError("MOD_001", "Budget error"), req_id
+        )[0]
+        == 402
+    )
+    assert (
+        map_exception_to_envelope(RateLimitError("MOD_002", "Rate error"), req_id)[0]
+        == 429
+    )
+    assert (
+        map_exception_to_envelope(AuthenticationError("MOD_003", "Auth error"), req_id)[
+            0
+        ]
+        == 401
+    )
+    assert (
+        map_exception_to_envelope(TimeoutError("MOD_004", "Timeout error"), req_id)[0]
+        == 504
+    )
 
 
 @pytest.mark.asyncio
 async def test_request_state_middleware_dispatch_success() -> None:
-    from fastapi import Request, Response
-    from api.middleware import RequestStateMiddleware
     from unittest.mock import AsyncMock, MagicMock
+
+    from fastapi import Request, Response
+
+    from api.middleware import RequestStateMiddleware
 
     middleware = RequestStateMiddleware(app=MagicMock())
     request = MagicMock(spec=Request)
@@ -282,9 +324,11 @@ async def test_request_state_middleware_dispatch_success() -> None:
 
 @pytest.mark.asyncio
 async def test_request_state_middleware_dispatch_error() -> None:
-    from fastapi import Request
-    from api.middleware import RequestStateMiddleware
     from unittest.mock import AsyncMock, MagicMock
+
+    from fastapi import Request
+
+    from api.middleware import RequestStateMiddleware
 
     middleware = RequestStateMiddleware(app=MagicMock())
     request = MagicMock(spec=Request)
@@ -299,12 +343,14 @@ async def test_request_state_middleware_dispatch_error() -> None:
 
 
 def test_register_exception_handlers() -> None:
+    import asyncio
+    from unittest.mock import MagicMock
+
     from fastapi import FastAPI
     from fastapi.exceptions import RequestValidationError
+
     from api.middleware import register_exception_handlers
     from core.exceptions import JarvisError
-    from unittest.mock import MagicMock
-    import asyncio
 
     app = FastAPI()
     register_exception_handlers(app)
@@ -323,7 +369,9 @@ def test_register_exception_handlers() -> None:
     assert res_val.status_code == 422
 
     handler_jarvis = app.exception_handlers[JarvisError]
-    res_jarvis = asyncio.run(handler_jarvis(request, JarvisError("TEST_001", "Jarvis err")))
+    res_jarvis = asyncio.run(
+        handler_jarvis(request, JarvisError("TEST_001", "Jarvis err"))
+    )
     assert res_jarvis.status_code == 500
 
     handler_exc = app.exception_handlers[Exception]
@@ -333,14 +381,18 @@ def test_register_exception_handlers() -> None:
 
 @pytest.mark.asyncio
 async def test_health_route_healthy() -> None:
+    import json
+    from unittest.mock import AsyncMock, MagicMock
+
     from fastapi import Request
+
     from api.routes.health import health
     from core.health import HealthMonitor
-    from unittest.mock import AsyncMock, MagicMock
-    import json
 
     mock_monitor = MagicMock(spec=HealthMonitor)
-    mock_monitor.check_health = AsyncMock(return_value={"status": "healthy", "uptime_seconds": 3600.0})
+    mock_monitor.check_health = AsyncMock(
+        return_value={"status": "healthy", "uptime_seconds": 3600.0}
+    )
 
     request = MagicMock(spec=Request)
     request.state = MagicMock()
@@ -357,14 +409,18 @@ async def test_health_route_healthy() -> None:
 
 @pytest.mark.asyncio
 async def test_health_route_degraded() -> None:
+    import json
+    from unittest.mock import AsyncMock, MagicMock
+
     from fastapi import Request
+
     from api.routes.health import health
     from core.health import HealthMonitor
-    from unittest.mock import AsyncMock, MagicMock
-    import json
 
     mock_monitor = MagicMock(spec=HealthMonitor)
-    mock_monitor.check_health = AsyncMock(return_value={"status": "degraded", "uptime_seconds": 120.0})
+    mock_monitor.check_health = AsyncMock(
+        return_value={"status": "degraded", "uptime_seconds": 120.0}
+    )
 
     request = MagicMock(spec=Request)
     request.state = MagicMock()
@@ -380,16 +436,19 @@ async def test_health_route_degraded() -> None:
 
 
 @pytest.mark.asyncio
-async def test_run_agent_route_post_success() -> None:
-    from fastapi import Request, BackgroundTasks
-    from api.routes.agent import run_agent
-    from api.dto import AgentRunRequest, SessionState
-    from core.reasoning.engine import ReasoningExecutionEngine
-    from unittest.mock import AsyncMock, MagicMock
+async def test_run_agent_route_post_success(mock_request_context) -> None:
     import json
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from fastapi import BackgroundTasks, Request
+
+    from api.dto import AgentRunRequest
+    from api.routes.agent import run_agent
+    from core.reasoning.engine import ReasoningExecutionEngine
+    from core.tools.execution_repository import ExecutionRepository
 
     mock_engine = MagicMock(spec=ReasoningExecutionEngine)
-    agent_runs = {}
+    mock_repository = AsyncMock(spec=ExecutionRepository)
 
     request = MagicMock(spec=Request)
     request.state = MagicMock()
@@ -398,7 +457,19 @@ async def test_run_agent_route_post_success() -> None:
     payload = AgentRunRequest(goal="Test goal", budget=15.0)
     bg_tasks = MagicMock(spec=BackgroundTasks)
 
-    response = await run_agent(request, payload, bg_tasks, mock_engine, agent_runs)
+    from tests.test_persistent_execution import _make_db_manager_mock
+
+    mock_db = _make_db_manager_mock()
+    with patch("api.routes.agent.db_manager", mock_db):
+        response = await run_agent(
+            request,
+            payload,
+            bg_tasks,
+            mock_request_context,
+            mock_engine,
+            mock_repository,
+        )
+
     assert response.status_code == 202
 
     body = json.loads(response.body)
@@ -406,87 +477,135 @@ async def test_run_agent_route_post_success() -> None:
     assert "run_id" in body["data"]
 
     run_id = uuid.UUID(body["data"]["run_id"])
-    assert run_id in agent_runs
-    assert agent_runs[run_id].state == SessionState.PLANNING
+    mock_repository.save_agent_run.assert_called_once()
+    call_kwargs = mock_repository.save_agent_run.call_args.kwargs
+    assert call_kwargs["run_id"] == run_id
+    assert call_kwargs["goal"] == "Test goal"
+    assert call_kwargs["budget"] == 15.0
+    assert call_kwargs["state"] == "Planning"
     bg_tasks.add_task.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_run_agent_in_background_lifecycle() -> None:
+    from unittest.mock import AsyncMock, patch
+
     from api.routes.agent import run_agent_in_background
-    from api.dto import AgentRunStatusResponse, SessionState, FailureType
     from core.reasoning.engine import ReasoningExecutionEngine
-    from unittest.mock import AsyncMock, MagicMock
+    from core.tools.execution_repository import ExecutionRepository
+    from tests.test_persistent_execution import _make_db_manager_mock
 
     # 1. Test success path
     mock_engine = AsyncMock(spec=ReasoningExecutionEngine)
     mock_engine.execute_goal.return_value = {
         "status": "SUCCESS",
-        "metrics": {"total_cost": 0.05, "total_steps": 3, "wall_time_seconds": 1.2}
+        "metrics": {"total_cost": 0.05, "total_steps": 3, "wall_time_seconds": 1.2},
     }
+    mock_repo = AsyncMock(spec=ExecutionRepository)
 
     run_id = uuid.uuid4()
-    agent_runs = {run_id: AgentRunStatusResponse(run_id=run_id, state=SessionState.PLANNING)}
+    mock_db = _make_db_manager_mock()
 
-    from decimal import Decimal
-    await run_agent_in_background(run_id, "Goal", 10.0, mock_engine, agent_runs)
-    assert agent_runs[run_id].state == SessionState.COMPLETED
-    assert agent_runs[run_id].metrics.total_cost == Decimal("0.05")
-    assert agent_runs[run_id].failure_type is None
+    with patch("api.routes.agent.db_manager", mock_db):
+        await run_agent_in_background(run_id, "Goal", 10.0, mock_engine, mock_repo)
+
+    assert mock_repo.update_agent_run_state.call_count == 2
+
+    call_1 = mock_repo.update_agent_run_state.call_args_list[0].kwargs
+    assert call_1["run_id"] == run_id
+    assert call_1["state"] == "Executing"
+
+    call_2 = mock_repo.update_agent_run_state.call_args_list[1].kwargs
+    assert call_2["run_id"] == run_id
+    assert call_2["state"] == "Completed"
+    from api.dto import EngineMetrics
+
+    expected_metrics = EngineMetrics(
+        total_cost=0.05, total_steps=3, wall_time_seconds=1.2
+    ).model_dump(mode="json")
+    assert call_2["metrics"] == expected_metrics
+    assert call_2["failure_type"] is None
 
     # 2. Test failure path with failure type
     mock_engine.execute_goal.return_value = {
         "status": "FAILURE",
-        "failure_type": "ModelFailure"
+        "failure_type": "ModelFailure",
     }
-    await run_agent_in_background(run_id, "Goal", 10.0, mock_engine, agent_runs)
-    assert agent_runs[run_id].state == SessionState.FAILED
-    assert agent_runs[run_id].failure_type == FailureType.ModelFailure
+    mock_repo = AsyncMock(spec=ExecutionRepository)
+    with patch("api.routes.agent.db_manager", mock_db):
+        await run_agent_in_background(run_id, "Goal", 10.0, mock_engine, mock_repo)
+    assert mock_repo.update_agent_run_state.call_count == 2
+    call_failure = mock_repo.update_agent_run_state.call_args_list[1].kwargs
+    assert call_failure["state"] == "Failed"
+    assert call_failure["failure_type"] == "ModelFailure"
 
     # 3. Test failure path with invalid failure type (value error fallback)
     mock_engine.execute_goal.return_value = {
         "status": "FAILURE",
-        "failure_type": "InvalidEnumVal"
+        "failure_type": "InvalidEnumVal",
     }
-    await run_agent_in_background(run_id, "Goal", 10.0, mock_engine, agent_runs)
-    assert agent_runs[run_id].state == SessionState.FAILED
-    assert agent_runs[run_id].failure_type == FailureType.PlannerFailure
+    mock_repo = AsyncMock(spec=ExecutionRepository)
+    with patch("api.routes.agent.db_manager", mock_db):
+        await run_agent_in_background(run_id, "Goal", 10.0, mock_engine, mock_repo)
+    assert mock_repo.update_agent_run_state.call_count == 2
+    call_fallback = mock_repo.update_agent_run_state.call_args_list[1].kwargs
+    assert call_fallback["state"] == "Failed"
+    assert call_fallback["failure_type"] == "PlannerFailure"
 
     # 4. Test exception path
     mock_engine.execute_goal.side_effect = ValueError("Core engine crashed")
-    await run_agent_in_background(run_id, "Goal", 10.0, mock_engine, agent_runs)
-    assert agent_runs[run_id].state == SessionState.FAILED
-    assert agent_runs[run_id].failure_type == FailureType.PlannerFailure
+    mock_repo = AsyncMock(spec=ExecutionRepository)
+    with patch("api.routes.agent.db_manager", mock_db):
+        await run_agent_in_background(run_id, "Goal", 10.0, mock_engine, mock_repo)
+    assert mock_repo.update_agent_run_state.call_count == 2
+    call_exception = mock_repo.update_agent_run_state.call_args_list[1].kwargs
+    assert call_exception["state"] == "Failed"
+    assert call_exception["failure_type"] == "PlannerFailure"
 
 
 @pytest.mark.asyncio
-async def test_get_run_status_route() -> None:
-    from fastapi import Request
-    from api.routes.agent import get_run_status
-    from api.dto import AgentRunStatusResponse, SessionState
-    from unittest.mock import MagicMock
+async def test_get_run_status_route(mock_request_context) -> None:
     import json
+    from unittest.mock import AsyncMock, MagicMock
+
+    from fastapi import Request
+
+    from api.routes.agent import get_run_status
+    from core.tools.execution_models import AgentRunModel
+    from core.tools.execution_repository import ExecutionRepository
 
     run_id = uuid.uuid4()
-    agent_runs = {
-        run_id: AgentRunStatusResponse(run_id=run_id, state=SessionState.COMPLETED)
-    }
+    mock_model = AgentRunModel(
+        id=run_id,
+        goal="Test",
+        budget=10.0,
+        state="Completed",
+    )
+    mock_repo = AsyncMock(spec=ExecutionRepository)
+    mock_repo.get_agent_run.return_value = mock_model
 
     request = MagicMock(spec=Request)
     request.state = MagicMock()
     request.state.request_id = uuid.uuid4()
 
+    session = MagicMock()
+
     # 1. Success 200 path
-    response = await get_run_status(request, run_id, agent_runs)
+    response = await get_run_status(
+        request, run_id, mock_request_context, mock_repo, session
+    )
     assert response.status_code == 200
     body = json.loads(response.body)
     assert body["success"] is True
-    assert body["data"]["state"] == SessionState.COMPLETED
+    assert body["data"]["state"] == "Completed"
 
     # 2. Missing 404 path
+    mock_repo.get_agent_run.return_value = None
     request.state.request_id = None
     missing_id = uuid.uuid4()
-    response_missing = await get_run_status(request, missing_id, agent_runs)
+    response_missing = await get_run_status(
+        request, missing_id, mock_request_context, mock_repo, session
+    )
     assert response_missing.status_code == 404
     body_missing = json.loads(response_missing.body)
     assert body_missing["success"] is False
@@ -494,16 +613,19 @@ async def test_get_run_status_route() -> None:
 
 
 @pytest.mark.asyncio
-async def test_run_agent_route_post_with_request_id() -> None:
-    from fastapi import Request, BackgroundTasks
-    from api.routes.agent import run_agent
-    from api.dto import AgentRunRequest
-    from core.reasoning.engine import ReasoningExecutionEngine
-    from unittest.mock import MagicMock
+async def test_run_agent_route_post_with_request_id(mock_request_context) -> None:
     import json
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from fastapi import BackgroundTasks, Request
+
+    from api.dto import AgentRunRequest
+    from api.routes.agent import run_agent
+    from core.reasoning.engine import ReasoningExecutionEngine
+    from core.tools.execution_repository import ExecutionRepository
 
     mock_engine = MagicMock(spec=ReasoningExecutionEngine)
-    agent_runs = {}
+    mock_repo = AsyncMock(spec=ExecutionRepository)
 
     request = MagicMock(spec=Request)
     request.state = MagicMock()
@@ -512,7 +634,13 @@ async def test_run_agent_route_post_with_request_id() -> None:
     payload = AgentRunRequest(goal="Test goal", budget=15.0)
     bg_tasks = MagicMock(spec=BackgroundTasks)
 
-    response = await run_agent(request, payload, bg_tasks, mock_engine, agent_runs)
+    from tests.test_persistent_execution import _make_db_manager_mock
+
+    mock_db = _make_db_manager_mock()
+    with patch("api.routes.agent.db_manager", mock_db):
+        response = await run_agent(
+            request, payload, bg_tasks, mock_request_context, mock_engine, mock_repo
+        )
     assert response.status_code == 202
 
     body = json.loads(response.body)
@@ -521,29 +649,33 @@ async def test_run_agent_route_post_with_request_id() -> None:
 
 
 @pytest.mark.asyncio
-async def test_submit_workflow_route_success() -> None:
-    from fastapi import Request
-    from api.routes.workflow import submit_workflow
-    from api.dto import WorkflowSubmitRequest
-    from core.tools.validator import WorkflowValidator
-    from core.tools.repository import WorkflowRepository
-    from core.tools.workflow_dto import WorkflowVersion
-    from sqlalchemy.ext.asyncio import AsyncSession
-    from unittest.mock import AsyncMock, MagicMock
+async def test_submit_workflow_route_success(mock_request_context) -> None:
     import json
+    from unittest.mock import AsyncMock, MagicMock
+
+    from fastapi import Request
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from api.dto import WorkflowSubmitRequest
+    from api.routes.workflow import submit_workflow
+    from core.tools.repository import WorkflowRepository
+    from core.tools.validator import WorkflowValidator
+    from core.tools.workflow_dto import WorkflowVersion
 
     mock_validator = MagicMock(spec=WorkflowValidator)
     mock_repository = MagicMock(spec=WorkflowRepository)
     mock_session = MagicMock(spec=AsyncSession)
 
     workflow_id = uuid.uuid4()
-    mock_repository.save = AsyncMock(return_value=WorkflowVersion(
-        workflow_id=workflow_id,
-        version=1,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
-        checksum="abc"
-    ))
+    mock_repository.save = AsyncMock(
+        return_value=WorkflowVersion(
+            workflow_id=workflow_id,
+            version=1,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            checksum="abc",
+        )
+    )
 
     request = MagicMock(spec=Request)
     request.state = MagicMock()
@@ -551,7 +683,14 @@ async def test_submit_workflow_route_success() -> None:
 
     payload = WorkflowSubmitRequest(name="Plan B", steps=[])
 
-    response = await submit_workflow(request, payload, mock_validator, mock_repository, mock_session)
+    response = await submit_workflow(
+        request,
+        payload,
+        mock_request_context,
+        mock_validator,
+        mock_repository,
+        mock_session,
+    )
     assert response.status_code == 202
 
     body = json.loads(response.body)
@@ -566,28 +705,32 @@ async def test_submit_workflow_route_success() -> None:
 
 
 @pytest.mark.asyncio
-async def test_submit_workflow_route_no_request_id() -> None:
-    from fastapi import Request
-    from api.routes.workflow import submit_workflow
-    from api.dto import WorkflowSubmitRequest
-    from core.tools.validator import WorkflowValidator
-    from core.tools.repository import WorkflowRepository
-    from core.tools.workflow_dto import WorkflowVersion
-    from sqlalchemy.ext.asyncio import AsyncSession
+async def test_submit_workflow_route_no_request_id(mock_request_context) -> None:
     from unittest.mock import AsyncMock, MagicMock
+
+    from fastapi import Request
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from api.dto import WorkflowSubmitRequest
+    from api.routes.workflow import submit_workflow
+    from core.tools.repository import WorkflowRepository
+    from core.tools.validator import WorkflowValidator
+    from core.tools.workflow_dto import WorkflowVersion
 
     mock_validator = MagicMock(spec=WorkflowValidator)
     mock_repository = MagicMock(spec=WorkflowRepository)
     mock_session = MagicMock(spec=AsyncSession)
 
     workflow_id = uuid.uuid4()
-    mock_repository.save = AsyncMock(return_value=WorkflowVersion(
-        workflow_id=workflow_id,
-        version=1,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
-        checksum="abc"
-    ))
+    mock_repository.save = AsyncMock(
+        return_value=WorkflowVersion(
+            workflow_id=workflow_id,
+            version=1,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+            checksum="abc",
+        )
+    )
 
     request = MagicMock(spec=Request)
     request.state = MagicMock()
@@ -595,36 +738,54 @@ async def test_submit_workflow_route_no_request_id() -> None:
 
     payload = WorkflowSubmitRequest(name="Plan B", steps=[])
 
-    response = await submit_workflow(request, payload, mock_validator, mock_repository, mock_session)
+    response = await submit_workflow(
+        request,
+        payload,
+        mock_request_context,
+        mock_validator,
+        mock_repository,
+        mock_session,
+    )
     assert response.status_code == 202
 
 
 @pytest.mark.asyncio
-async def test_get_workflow_status_route() -> None:
+async def test_get_workflow_status_route(mock_request_context) -> None:
+    import json
+    from unittest.mock import AsyncMock, MagicMock
+
     from fastapi import Request
+    from sqlalchemy.ext.asyncio import AsyncSession
+
     from api.routes.workflow import get_workflow_status
+    from core.tools.execution_repository import ExecutionRepository
     from core.tools.repository import WorkflowRepository
     from core.tools.workflow_dto import WorkflowPlan
-    from sqlalchemy.ext.asyncio import AsyncSession
-    from unittest.mock import AsyncMock, MagicMock
-    import json
 
     mock_repository = MagicMock(spec=WorkflowRepository)
+    mock_exec_repo = AsyncMock(spec=ExecutionRepository)
     mock_session = MagicMock(spec=AsyncSession)
 
+    mock_exec_repo.get_latest_workflow_execution.return_value = None
+
     workflow_id = uuid.uuid4()
-    mock_repository.get = AsyncMock(return_value=WorkflowPlan(
-        name="Plan B",
-        workflow_id=workflow_id,
-        steps=[]
-    ))
+    mock_repository.get = AsyncMock(
+        return_value=WorkflowPlan(name="Plan B", workflow_id=workflow_id, steps=[])
+    )
 
     request = MagicMock(spec=Request)
     request.state = MagicMock()
     request.state.request_id = uuid.uuid4()
 
     # 1. Success 200 path
-    response = await get_workflow_status(request, workflow_id, mock_repository, mock_session)
+    response = await get_workflow_status(
+        request,
+        workflow_id,
+        mock_request_context,
+        mock_repository,
+        mock_exec_repo,
+        mock_session,
+    )
     assert response.status_code == 200
     body = json.loads(response.body)
     assert body["success"] is True
@@ -633,7 +794,14 @@ async def test_get_workflow_status_route() -> None:
     # 2. Missing 404 path with request_id = None
     mock_repository.get.return_value = None
     request.state.request_id = None
-    response_missing = await get_workflow_status(request, workflow_id, mock_repository, mock_session)
+    response_missing = await get_workflow_status(
+        request,
+        workflow_id,
+        mock_request_context,
+        mock_repository,
+        mock_exec_repo,
+        mock_session,
+    )
     assert response_missing.status_code == 404
     body_missing = json.loads(response_missing.body)
     assert body_missing["success"] is False
@@ -642,8 +810,9 @@ async def test_get_workflow_status_route() -> None:
 
 @pytest.mark.asyncio
 async def test_get_db_session() -> None:
-    from api.dependencies import get_db_session
     from unittest.mock import AsyncMock, patch
+
+    from api.dependencies import get_db_session
 
     mock_session = AsyncMock()
     with patch("api.dependencies.db_manager.session") as mock_session_ctx:
@@ -661,10 +830,12 @@ async def test_get_db_session() -> None:
 
 @pytest.mark.asyncio
 async def test_telemetry_hub_websocket_lifecycle() -> None:
+    from unittest.mock import AsyncMock, MagicMock
+
+    from fastapi import WebSocket, WebSocketDisconnect
+
     from api.stream_service import telemetry_hub
     from core.events.base import EventBus
-    from fastapi import WebSocket, WebSocketDisconnect
-    from unittest.mock import AsyncMock, MagicMock
 
     mock_ws = MagicMock(spec=WebSocket)
     mock_ws.accept = AsyncMock()
@@ -672,12 +843,14 @@ async def test_telemetry_hub_websocket_lifecycle() -> None:
     mock_ws.close = AsyncMock()
 
     run_id = uuid.uuid4()
-    mock_ws.receive_json = AsyncMock(side_effect=[
-        {"action": "subscribe", "run_id": str(run_id)},
-        {"action": "unsubscribe", "run_id": str(run_id)},
-        {"action": "subscribe", "run_id": str(run_id)},
-        WebSocketDisconnect()
-    ])
+    mock_ws.receive_json = AsyncMock(
+        side_effect=[
+            {"action": "subscribe", "run_id": str(run_id)},
+            {"action": "unsubscribe", "run_id": str(run_id)},
+            {"action": "subscribe", "run_id": str(run_id)},
+            WebSocketDisconnect(),
+        ]
+    )
 
     mock_bus = MagicMock(spec=EventBus)
     mock_bus.subscribe = AsyncMock(return_value="sub_123")
@@ -692,12 +865,14 @@ async def test_telemetry_hub_websocket_lifecycle() -> None:
 
 @pytest.mark.asyncio
 async def test_telemetry_hub_event_broadcasting() -> None:
-    from api.stream_service import telemetry_hub
-    from core.interfaces import InterAgentMessage
-    from core.events.base import EventBus
-    from fastapi import WebSocket, WebSocketDisconnect
-    from unittest.mock import AsyncMock, MagicMock
     import asyncio
+    from unittest.mock import AsyncMock, MagicMock
+
+    from fastapi import WebSocket, WebSocketDisconnect
+
+    from api.stream_service import telemetry_hub
+    from core.events.base import EventBus
+    from core.interfaces import InterAgentMessage
 
     mock_ws = MagicMock(spec=WebSocket)
     mock_ws.accept = AsyncMock()
@@ -705,12 +880,15 @@ async def test_telemetry_hub_event_broadcasting() -> None:
     mock_ws.close = AsyncMock()
 
     run_id = uuid.uuid4()
-    mock_ws.receive_json = AsyncMock(side_effect=[
-        {"action": "subscribe", "run_id": str(run_id)},
-        WebSocketDisconnect()
-    ])
+    mock_ws.receive_json = AsyncMock(
+        side_effect=[
+            {"action": "subscribe", "run_id": str(run_id)},
+            WebSocketDisconnect(),
+        ]
+    )
 
     captured_callbacks = []
+
     async def mock_subscribe(topic: str, callback) -> str:
         captured_callbacks.append(callback)
         return "sub_id"
@@ -733,7 +911,7 @@ async def test_telemetry_hub_event_broadcasting() -> None:
         sender="engine",
         receiver="bus",
         action="transition",
-        body={"run_id": str(run_id), "status": "active"}
+        body={"run_id": str(run_id), "status": "active"},
     )
     await callback(msg_matching)
 
@@ -744,10 +922,7 @@ async def test_telemetry_hub_event_broadcasting() -> None:
 
     # 2. Trigger event with missing/invalid run_id
     msg_no_run_id = InterAgentMessage(
-        sender="engine",
-        receiver="bus",
-        action="transition",
-        body={}
+        sender="engine", receiver="bus", action="transition", body={}
     )
     await callback(msg_no_run_id)
 
@@ -755,7 +930,7 @@ async def test_telemetry_hub_event_broadcasting() -> None:
         sender="engine",
         receiver="bus",
         action="transition",
-        body={"run_id": "not-a-uuid"}
+        body={"run_id": "not-a-uuid"},
     )
     await callback(msg_invalid_run_id)
 
@@ -764,7 +939,7 @@ async def test_telemetry_hub_event_broadcasting() -> None:
         sender="engine",
         receiver="bus",
         action="transition",
-        body={"run_id": str(uuid.uuid4())}
+        body={"run_id": str(uuid.uuid4())},
     )
     await callback(msg_other_run_id)
 
@@ -780,23 +955,31 @@ async def test_telemetry_hub_event_broadcasting() -> None:
 
 @pytest.mark.asyncio
 async def test_telemetry_hub_edge_cases() -> None:
+    from unittest.mock import AsyncMock, MagicMock
+
+    from fastapi import WebSocket, WebSocketDisconnect
+
     from api.stream_service import telemetry_hub
     from core.events.base import EventBus
-    from fastapi import WebSocket, WebSocketDisconnect
-    from unittest.mock import AsyncMock, MagicMock
 
     mock_ws = MagicMock(spec=WebSocket)
     mock_ws.accept = AsyncMock()
     # 1. Invalid payload command, 2. Invalid UUID format, 3. Unsubscribe, 4. Disconnect
-    mock_ws.receive_json = AsyncMock(side_effect=[
-        {"action": "subscribe"},  # Missing run_id
-        {"action": "subscribe", "run_id": "invalid-uuid"},  # Invalid UUID
-        {"action": "unsubscribe", "run_id": str(uuid.uuid4())},  # Unsubscribe action
-        WebSocketDisconnect()
-    ])
+    mock_ws.receive_json = AsyncMock(
+        side_effect=[
+            {"action": "subscribe"},  # Missing run_id
+            {"action": "subscribe", "run_id": "invalid-uuid"},  # Invalid UUID
+            {
+                "action": "unsubscribe",
+                "run_id": str(uuid.uuid4()),
+            },  # Unsubscribe action
+            WebSocketDisconnect(),
+        ]
+    )
     mock_ws.close = AsyncMock(side_effect=ValueError("WebSocket close failed"))
 
     mock_bus = MagicMock(spec=EventBus)
+
     # Trigger exception in subscribe for one topic
     async def mock_subscribe(topic: str, callback) -> str:
         if topic == "system.kernel.ready":
@@ -815,35 +998,46 @@ async def test_telemetry_hub_edge_cases() -> None:
 
 @pytest.mark.asyncio
 async def test_app_lifespan() -> None:
-    from api.main import lifespan
-    from fastapi import FastAPI
     from unittest.mock import AsyncMock, patch
 
-    mock_kernel = AsyncMock()
-    with patch("api.main.Kernel", return_value=mock_kernel), \
-         patch("api.main.set_kernel") as mock_set_kernel:
+    from fastapi import FastAPI
 
+    from api.main import lifespan
+
+    mock_kernel = AsyncMock()
+    mock_kernel.boot = AsyncMock(return_value=True)
+    mock_kernel.lifecycle_manager.stop_all = AsyncMock()
+    mock_kernel.lifecycle_manager.shutdown_all = AsyncMock()
+    with (
+        patch("api.main.Kernel", return_value=mock_kernel),
+        patch("api.main.set_kernel") as mock_set_kernel,
+    ):
         app = FastAPI()
         async with lifespan(app):
             pass
 
         mock_kernel.initialize.assert_called_once()
-        mock_kernel.start.assert_called_once()
+        mock_kernel.boot.assert_called_once()
         mock_set_kernel.assert_called_once_with(mock_kernel)
-        mock_kernel.stop.assert_called_once()
+        mock_kernel.lifecycle_manager.stop_all.assert_called_once()
+        mock_kernel.lifecycle_manager.shutdown_all.assert_called_once()
         mock_kernel.shutdown.assert_called_once()
 
 
 def test_create_app() -> None:
-    from fastapi.testclient import TestClient
-    from api.main import create_app
-    from api.dependencies import get_health_monitor
     from unittest.mock import AsyncMock, MagicMock
+
+    from fastapi.testclient import TestClient
+
+    from api.dependencies import get_health_monitor
+    from api.main import create_app
 
     app = create_app()
 
     mock_health = MagicMock()
-    mock_health.check_health = AsyncMock(return_value={"status": "healthy", "uptime_seconds": 100.0})
+    mock_health.check_health = AsyncMock(
+        return_value={"status": "healthy", "uptime_seconds": 100.0}
+    )
     app.dependency_overrides[get_health_monitor] = lambda: mock_health
 
     client = TestClient(app)

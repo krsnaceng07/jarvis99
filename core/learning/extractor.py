@@ -49,7 +49,7 @@ class EntityExtractor:
                     id=uuid4(),
                     session_id=session_id,
                     name=concept.capitalize(),
-                    type="concept",
+                    type="Concept",
                     properties={"category": "technology", "auto_extracted": True},
                 )
                 nodes.append(node)
