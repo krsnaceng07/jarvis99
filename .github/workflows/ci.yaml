@@ -28,3 +28,7 @@ jobs:
       - name: Run Automated Audit Framework
         run: |
           uv run python -m audit.cli --verbose
+
+      - name: Run Architecture Linter
+        run: |
+          uv run python -m scripts.architecture_linter --config .architecture-linter.toml

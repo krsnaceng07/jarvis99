@@ -38,15 +38,22 @@ from scripts.architecture_linter import (
     NBR2Rule,
     NBR3Rule,
     NBR4Rule,
+    NCP1Rule,
+    NDE1Rule,
+    NDE2Rule,
+    NDE3Rule,
     NSD1Rule,
     NSD2Rule,
     NSD3Rule,
+    NUC1Rule,
+    NUC2Rule,
     Report,
     Rule,
     RuleRegistry,
     Severity,
     TextReporter,
     Violation,
+    build_registry,
     main,
 )
 
@@ -1181,3 +1188,510 @@ def test_nsd3_regression_spec_example(tmp_path: Path) -> None:
     assert v[0].rule_id == "NSD-3"
     assert v[0].line == 3
     assert "tool" in v[0].message
+
+
+# ----------------------------------------------------------------------------
+# NDE Rules (M5.5.1.E) — No DTO Misuse
+# Spec: docs/governance/architecture_linter.md §3.4
+# Test matrix: NDE-1, NDE-2, NDE-3
+# ----------------------------------------------------------------------------
+
+
+# === NDE-1: DTO files (*dto.py, *types.py) MUST NOT import Repository/Engine/Service ===
+
+
+def test_nde1_positive_clean_dto_file(tmp_path: Path) -> None:
+    """NDE-1 positive: DTO file with only data definitions and safe imports is OK."""
+    rule = NDE1Rule()
+    src = (
+        "from pydantic import BaseModel\n"
+        "from typing import Optional\n"
+        "\n"
+        "class UserDTO(BaseModel):\n"
+        "    id: int\n"
+        "    name: str\n"
+        "    email: Optional[str]\n"
+    )
+    v = _register_and_lint(tmp_path, "core/user_dto.py", src, rule)
+    assert v == []
+
+
+def test_nde1_positive_non_dto_file_ignored(tmp_path: Path) -> None:
+    """NDE-1 only targets DTO files; other files are ignored."""
+    rule = NDE1Rule()
+    src = (
+        "from core.repository import UserRepository\n"
+        "from core.engine import InferenceEngine\n"
+        "class Service:\n"
+        "    pass\n"
+    )
+    v = _register_and_lint(tmp_path, "core/service.py", src, rule)
+    assert v == []
+
+
+def test_nde1_negative_imports_repository_module(tmp_path: Path) -> None:
+    """NDE-1 negative 1: importing a Repository module is forbidden in a DTO file."""
+    rule = NDE1Rule()
+    src = "from core.repository import UserRepository\n"
+    v = _register_and_lint(tmp_path, "core/user_dto.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NDE-1"
+    assert "Repository" in v[0].message
+
+
+def test_nde1_negative_imports_engine_module(tmp_path: Path) -> None:
+    """NDE-1 negative 2: importing an Engine module is forbidden in a DTO file."""
+    rule = NDE1Rule()
+    src = "import core.engine\n"
+    v = _register_and_lint(tmp_path, "core/engine_dto.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NDE-1"
+    assert "Engine" in v[0].message
+
+
+def test_nde1_negative_imports_service_alias(tmp_path: Path) -> None:
+    """NDE-1 negative 3: importing a Service via alias is still forbidden."""
+    rule = NDE1Rule()
+    src = "from core.service import SomeService as Svc\n"
+    v = _register_and_lint(tmp_path, "core/types.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NDE-1"
+    assert "Service" in v[0].message
+
+
+def test_nde1_regression_spec_example(tmp_path: Path) -> None:
+    """NDE-1 regression: DTO file importing Repository from core."""
+    rule = NDE1Rule()
+    src = "from core.repository import MemoryRepository\n"
+    v = _register_and_lint(tmp_path, "core/memory_dto.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NDE-1"
+    assert v[0].line == 1
+
+
+# === NDE-2: DTOs in DTO files MUST inherit from Pydantic BaseModel, NOT use @dataclass ===
+
+
+def test_nde2_positive_pydantic_dto(tmp_path: Path) -> None:
+    """NDE-2 positive: DTO file with classes inheriting from BaseModel is OK."""
+    rule = NDE2Rule()
+    src = (
+        "from pydantic import BaseModel\n"
+        "\n"
+        "class UserDTO(BaseModel):\n"
+        "    id: int\n"
+        "    name: str\n"
+        "\n"
+        "class PostDTO(BaseModel):\n"
+        "    title: str\n"
+        "    content: str\n"
+    )
+    v = _register_and_lint(tmp_path, "core/user_dto.py", src, rule)
+    assert v == []
+
+
+def test_nde2_positive_non_dto_file_ignored(tmp_path: Path) -> None:
+    """NDE-2 only targets DTO files; other files are ignored."""
+    rule = NDE2Rule()
+    src = (
+        "from dataclasses import dataclass\n"
+        "\n"
+        "@dataclass\n"
+        "class DataContainer:\n"
+        "    x: int\n"
+    )
+    v = _register_and_lint(tmp_path, "core/utils.py", src, rule)
+    assert v == []
+
+
+def test_nde2_negative_uses_dataclass(tmp_path: Path) -> None:
+    """NDE-2 negative 1: using @dataclass in a DTO file is forbidden."""
+    rule = NDE2Rule()
+    src = (
+        "from dataclasses import dataclass\n"
+        "\n"
+        "@dataclass\n"
+        "class UserDTO:\n"
+        "    id: int\n"
+        "    name: str\n"
+    )
+    v = _register_and_lint(tmp_path, "core/user_dto.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NDE-2"
+    assert "BaseModel" in v[0].message
+
+
+def test_nde2_negative_no_base_model(tmp_path: Path) -> None:
+    """NDE-2 negative 2: class without BaseModel inheritance is forbidden in DTO file."""
+    rule = NDE2Rule()
+    src = (
+        "class UserDTO:\n"
+        "    def __init__(self, id: int, name: str):\n"
+        "        self.id = id\n"
+        "        self.name = name\n"
+    )
+    v = _register_and_lint(tmp_path, "core/user_dto.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NDE-2"
+    assert "BaseModel" in v[0].message
+
+
+def test_nde2_negative_mixed_classes(tmp_path: Path) -> None:
+    """NDE-2 negative 3: mix of good and bad classes in DTO file flags the bad ones."""
+    rule = NDE2Rule()
+    src = (
+        "from pydantic import BaseModel\n"
+        "from dataclasses import dataclass\n"
+        "\n"
+        "class GoodDTO(BaseModel):\n"
+        "    id: int\n"
+        "\n"
+        "@dataclass\n"
+        "class BadDataclass:\n"
+        "    x: int\n"
+        "\n"
+        "class BadPlainClass:\n"
+        "    y: int\n"
+    )
+    v = _register_and_lint(tmp_path, "core/types.py", src, rule)
+    assert len(v) == 2
+    rule_ids = {x.rule_id for x in v}
+    assert rule_ids == {"NDE-2"}
+
+
+def test_nde2_regression_spec_example(tmp_path: Path) -> None:
+    """NDE-2 regression: @dataclass in a DTO file must be flagged."""
+    rule = NDE2Rule()
+    src = (
+        "from dataclasses import dataclass\n"
+        "\n"
+        "@dataclass\n"
+        "class MemoryDTO:\n"
+        "    content: str\n"
+    )
+    v = _register_and_lint(tmp_path, "core/memory_dto.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NDE-2"
+    assert v[0].line == 4
+
+
+# === NDE-3: All DTOs in DTO files MUST have a schema_version field ===
+
+
+def test_nde3_positive_has_schema_version(tmp_path: Path) -> None:
+    """NDE-3 positive: DTO with schema_version field is OK."""
+    rule = NDE3Rule()
+    src = (
+        "from pydantic import BaseModel\n"
+        "\n"
+        "class UserDTO(BaseModel):\n"
+        "    schema_version: str = '1.0'\n"
+        "    id: int\n"
+        "    name: str\n"
+        "\n"
+        "class PostDTO(BaseModel):\n"
+        "    schema_version: str = '2.1'\n"
+        "    title: str\n"
+        "    content: str\n"
+    )
+    v = _register_and_lint(tmp_path, "core/user_dto.py", src, rule)
+    assert v == []
+
+
+def test_nde3_positive_non_dto_file_ignored(tmp_path: Path) -> None:
+    """NDE-3 only targets DTO files; other files are ignored."""
+    rule = NDE3Rule()
+    src = "class SomeClass:\n    x: int\n    y: int\n"
+    v = _register_and_lint(tmp_path, "core/utils.py", src, rule)
+    assert v == []
+
+
+def test_nde3_negative_no_schema_version(tmp_path: Path) -> None:
+    """NDE-3 negative 1: DTO without schema_version is forbidden."""
+    rule = NDE3Rule()
+    src = (
+        "from pydantic import BaseModel\n"
+        "\n"
+        "class UserDTO(BaseModel):\n"
+        "    id: int\n"
+        "    name: str\n"
+    )
+    v = _register_and_lint(tmp_path, "core/user_dto.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NDE-3"
+    assert "schema_version" in v[0].message
+
+
+def test_nde3_negative_multiple_dtos_missing(tmp_path: Path) -> None:
+    """NDE-3 negative 2: multiple DTOs without schema_version are all flagged."""
+    rule = NDE3Rule()
+    src = (
+        "from pydantic import BaseModel\n"
+        "\n"
+        "class UserDTO(BaseModel):\n"
+        "    id: int\n"
+        "    name: str\n"
+        "\n"
+        "class PostDTO(BaseModel):\n"
+        "    title: str\n"
+        "    content: str\n"
+        "\n"
+        "class CommentDTO(BaseModel):\n"
+        "    schema_version: str = '1.0'\n"
+        "    text: str\n"
+    )
+    v = _register_and_lint(tmp_path, "core/types.py", src, rule)
+    assert len(v) == 2
+    rule_ids = {x.rule_id for x in v}
+    assert rule_ids == {"NDE-3"}
+
+
+def test_nde3_regression_spec_example(tmp_path: Path) -> None:
+    """NDE-3 regression: DTO without schema_version field."""
+    rule = NDE3Rule()
+    src = (
+        "from pydantic import BaseModel\n"
+        "\n"
+        "class MemoryDTO(BaseModel):\n"
+        "    content: str\n"
+        "    timestamp: float\n"
+    )
+    v = _register_and_lint(tmp_path, "core/memory_dto.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NDE-3"
+    assert v[0].line == 3
+
+
+# ----------------------------------------------------------------------------
+# NUC Rules (M5.5.1.E) — No UI in Core
+# Spec: docs/governance/architecture_linter.md §3.5
+# Test matrix: NUC-1, NUC-2
+# ----------------------------------------------------------------------------
+
+
+# === NUC-1: core/ MUST NOT import UI/web/CLI frameworks (fastapi, starlette, flask, click, typer, rich, textual) ===
+
+
+def test_nuc1_positive_core_safe_imports(tmp_path: Path) -> None:
+    """NUC-1 positive: core file with only safe imports is OK."""
+    rule = NUC1Rule()
+    src = (
+        "from pydantic import BaseModel\n"
+        "from typing import Optional\n"
+        "import asyncio\n"
+        "import logging\n"
+    )
+    v = _register_and_lint(tmp_path, "core/utils.py", src, rule)
+    assert v == []
+
+
+def test_nuc1_positive_non_core_file_ignored(tmp_path: Path) -> None:
+    """NUC-1 only targets core/ files; other directories are ignored."""
+    rule = NUC1Rule()
+    src = "from fastapi import FastAPI\nimport click\napp = FastAPI()\n"
+    v = _register_and_lint(tmp_path, "api/main.py", src, rule)
+    assert v == []
+
+
+def test_nuc1_negative_imports_fastapi(tmp_path: Path) -> None:
+    """NUC-1 negative 1: importing fastapi in core file is forbidden."""
+    rule = NUC1Rule()
+    src = "from fastapi import FastAPI\n"
+    v = _register_and_lint(tmp_path, "core/utils.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NUC-1"
+    assert "fastapi" in v[0].message
+
+
+def test_nuc1_negative_imports_starlette(tmp_path: Path) -> None:
+    """NUC-1 negative 2: importing starlette in core file is forbidden."""
+    rule = NUC1Rule()
+    src = "import starlette\n"
+    v = _register_and_lint(tmp_path, "core/web_utils.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NUC-1"
+    assert "starlette" in v[0].message
+
+
+def test_nuc1_negative_imports_click(tmp_path: Path) -> None:
+    """NUC-1 negative 3: importing click in core file is forbidden."""
+    rule = NUC1Rule()
+    src = "from click import command\n"
+    v = _register_and_lint(tmp_path, "core/cli_utils.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NUC-1"
+    assert "click" in v[0].message
+
+
+def test_nuc1_negative_imports_typer(tmp_path: Path) -> None:
+    """NUC-1 negative 4: importing typer in core file is forbidden."""
+    rule = NUC1Rule()
+    src = "import typer\n"
+    v = _register_and_lint(tmp_path, "core/cli.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NUC-1"
+    assert "typer" in v[0].message
+
+
+def test_nuc1_negative_imports_rich(tmp_path: Path) -> None:
+    """NUC-1 negative 5: importing rich in core file is forbidden."""
+    rule = NUC1Rule()
+    src = "from rich.console import Console\n"
+    v = _register_and_lint(tmp_path, "core/output.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NUC-1"
+    assert "rich" in v[0].message
+
+
+def test_nuc1_negative_imports_textual(tmp_path: Path) -> None:
+    """NUC-1 negative 6: importing textual in core file is forbidden."""
+    rule = NUC1Rule()
+    src = "import textual\n"
+    v = _register_and_lint(tmp_path, "core/ui.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NUC-1"
+    assert "textual" in v[0].message
+
+
+def test_nuc1_regression_spec_example(tmp_path: Path) -> None:
+    """NUC-1 regression: core file importing fastapi must be flagged."""
+    rule = NUC1Rule()
+    src = "from fastapi import Depends\n"
+    v = _register_and_lint(tmp_path, "core/deps.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NUC-1"
+    assert v[0].line == 1
+
+
+# === NUC-2: core/ MUST NOT import GUI/browser libraries (tkinter, pyqt, kivy, playwright) ===
+
+
+def test_nuc2_positive_core_safe_imports(tmp_path: Path) -> None:
+    """NUC-2 positive: core file with only safe imports is OK."""
+    rule = NUC2Rule()
+    src = "from pydantic import BaseModel\nimport asyncio\nimport json\n"
+    v = _register_and_lint(tmp_path, "core/utils.py", src, rule)
+    assert v == []
+
+
+def test_nuc2_positive_non_core_file_ignored(tmp_path: Path) -> None:
+    """NUC-2 only targets core/ files; other directories are ignored."""
+    rule = NUC2Rule()
+    src = "import tkinter as tk\nfrom playwright.sync_api import sync_playwright\n"
+    v = _register_and_lint(tmp_path, "ui/gui.py", src, rule)
+    assert v == []
+
+
+def test_nuc2_negative_imports_tkinter(tmp_path: Path) -> None:
+    """NUC-2 negative 1: importing tkinter in core file is forbidden."""
+    rule = NUC2Rule()
+    src = "import tkinter\n"
+    v = _register_and_lint(tmp_path, "core/gui_utils.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NUC-2"
+    assert "tkinter" in v[0].message
+
+
+def test_nuc2_negative_imports_pyqt(tmp_path: Path) -> None:
+    """NUC-2 negative 2: importing pyqt in core file is forbidden."""
+    rule = NUC2Rule()
+    src = "from PyQt5.QtWidgets import QApplication\n"
+    v = _register_and_lint(tmp_path, "core/ui.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NUC-2"
+
+
+def test_nuc2_negative_imports_kivy(tmp_path: Path) -> None:
+    """NUC-2 negative 3: importing kivy in core file is forbidden."""
+    rule = NUC2Rule()
+    src = "import kivy\n"
+    v = _register_and_lint(tmp_path, "core/kivy_utils.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NUC-2"
+    assert "kivy" in v[0].message
+
+
+def test_nuc2_negative_imports_playwright(tmp_path: Path) -> None:
+    """NUC-2 negative 4: importing playwright in core file is forbidden."""
+    rule = NUC2Rule()
+    src = "from playwright.sync_api import sync_playwright\n"
+    v = _register_and_lint(tmp_path, "core/browser.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NUC-2"
+    assert "playwright" in v[0].message
+
+
+def test_nuc2_regression_spec_example(tmp_path: Path) -> None:
+    """NUC-2 regression: core file importing playwright must be flagged."""
+    rule = NUC2Rule()
+    src = "import playwright\n"
+    v = _register_and_lint(tmp_path, "core/browser.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NUC-2"
+    assert v[0].line == 1
+
+
+# ----------------------------------------------------------------------------
+# NCP Rules (M5.5.1.F) — No Cross-Phase Imports
+# Spec: docs/governance/architecture_linter.md §3.6
+# ----------------------------------------------------------------------------
+
+
+# === NCP-1: Frozen phase (1-13) MUST NOT import from non-frozen phase (14+) ===
+
+
+def test_ncp1_positive_frozen_phase_safe_imports(tmp_path: Path) -> None:
+    """NCP-1 positive: frozen phase file with safe imports is OK."""
+    rule = NCP1Rule()
+    src = "from core.phase13.auth import check\n"
+    v = _register_and_lint(tmp_path, "core/phase13/utils.py", src, rule)
+    assert v == []
+
+
+def test_ncp1_positive_non_frozen_phase_ignored(tmp_path: Path) -> None:
+    """NCP-1 only targets frozen phases; non-frozen phases are ignored."""
+    rule = NCP1Rule()
+    src = "from core.phase14.api_gateway import X\n"
+    v = _register_and_lint(tmp_path, "core/phase19/memory.py", src, rule)
+    assert v == []
+
+
+def test_ncp1_negative_frozen_imports_non_frozen(tmp_path: Path) -> None:
+    """NCP-1 negative: frozen phase importing from non-frozen phase is forbidden."""
+    rule = NCP1Rule()
+    src = "from core.phase14.api_gateway import X\n"
+    v = _register_and_lint(tmp_path, "core/phase13/utils.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NCP-1"
+    assert "phase14" in v[0].message
+
+
+def test_ncp1_regression_spec_example(tmp_path: Path) -> None:
+    """NCP-1 regression: frozen phase file importing from phase14 must be flagged."""
+    rule = NCP1Rule()
+    src = "from core.phase14.api_gateway import X\n"
+    v = _register_and_lint(tmp_path, "core/phase13/auth/check.py", src, rule)
+    assert len(v) == 1
+    assert v[0].rule_id == "NCP-1"
+    assert v[0].line == 1
+
+
+# ----------------------------------------------------------------------------
+# KG Rules (M5.5.1.F) — M6-Specific (stubs, disabled by default)
+# Spec: docs/governance/architecture_linter.md §5
+# ----------------------------------------------------------------------------
+
+
+def test_kg_rules_disabled_by_default(tmp_path: Path) -> None:
+    """KG rules are disabled by default in config; verify they don't run."""
+    # Test that with default config, KG rules are not enabled
+    cfg = LinterConfig()
+    assert "KG" not in cfg.enabled_categories
+
+    # Test that even if registered, they don't run when category is disabled
+    src = "class SomeClass: pass\n"
+    target = _write_py(tmp_path, "core/memory/kg/inference_engine.py", src)
+    registry = build_registry()
+    linter = ArchitectureLinter(cfg, registry)
+    violations = linter.lint(target)
+    assert violations == []

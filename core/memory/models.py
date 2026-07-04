@@ -40,9 +40,14 @@ class AgentSession(Base):  # type: ignore[misc,valid-type]
     config = Column(
         JSON().with_variant(JSONB, "postgresql"), nullable=False, default=dict
     )
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
 
 
@@ -54,7 +59,9 @@ class MemorySource(Base):  # type: ignore[misc,valid-type]
     id = Column(Uuid(as_uuid=True), primary_key=True)
     source_type = Column(String(50), nullable=False)
     uri = Column(String(500), nullable=False)
-    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    timestamp = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
     agent_id = Column(String(100), nullable=False)
     confidence = Column(Float, default=1.0, nullable=False)
     version = Column(String(50), default="1.0.0", nullable=False)
@@ -80,9 +87,14 @@ class MemoryChunk(Base):  # type: ignore[misc,valid-type]
         nullable=False,
         default=dict,
     )
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
     )
     is_deleted = Column(Boolean, default=False, nullable=False)
     version = Column(Integer, default=1, nullable=False)
@@ -133,7 +145,9 @@ class APIBillingLog(Base):  # type: ignore[misc,valid-type]
     __tablename__ = "api_billing_logs"
 
     id = Column(Uuid(as_uuid=True), primary_key=True)
-    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    timestamp = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
     provider_name = Column(String(100), nullable=False)
     model_name = Column(String(100), nullable=False)
     prompt_tokens = Column(Integer, nullable=False)

@@ -16,14 +16,16 @@ STATUS: IMPLEMENTATION
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Any, List, Optional  # Added Any here
 from uuid import UUID, uuid4
 
 import pytest
 
+from core.interfaces import EventBusInterface, InterAgentMessage
 from core.memory.dto import (
     MemoryProvenance,
     MemoryRecord,
+    MemoryTier,  # Added MemoryTier here
     MemoryTrustLevel,
     MemoryType,
     MemoryVisibility,
@@ -350,19 +352,18 @@ class TestRetrievalMetrics:
 
 # =====================================================================
 # Telemetry, Deduplication, and Validation Tests
-# =====================================================================
-from core.interfaces import EventBusInterface, InterAgentMessage
+# =================================================0====================
 
 
 class MockEventBus(EventBusInterface):
     def __init__(self) -> None:
-        self.published = []
+        self.published: list[tuple[str, InterAgentMessage]] = []  # Added type hint here
 
     async def publish(self, topic: str, message: InterAgentMessage) -> bool:
         self.published.append((topic, message))
         return True
 
-    async def subscribe(self, topic: str, callback: any) -> str:
+    async def subscribe(self, topic: str, callback: Any) -> str:  # Used Any here
         return "sub-id"
 
     async def initialize(self) -> None:

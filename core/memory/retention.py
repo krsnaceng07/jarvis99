@@ -267,10 +267,7 @@ class RetentionEngine:
                 # L1 -> L2: access_count >= 3 within TTL window
                 age_minutes = (now - record.updated_at).total_seconds() / 60.0
                 access_count = self._get_access_count(record)
-                if (
-                    age_minutes <= self._config.l1_ttl_minutes
-                    and access_count >= 3
-                ):
+                if age_minutes <= self._config.l1_ttl_minutes and access_count >= 3:
                     actions.append(
                         PromotionAction(
                             memory_id=record.memory_id,
@@ -285,10 +282,7 @@ class RetentionEngine:
                 # L2 -> L3: score >= threshold AND access_count >= 2
                 score = scores_map.get(record.memory_id, 0.0)
                 access_count = self._get_access_count(record)
-                if (
-                    score >= self._config.l2_promotion_threshold
-                    and access_count >= 2
-                ):
+                if score >= self._config.l2_promotion_threshold and access_count >= 2:
                     promotion_reason = (
                         PromotionReason.PINNED
                         if self._get_is_pinned(record)

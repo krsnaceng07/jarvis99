@@ -4,7 +4,7 @@
 
 [general]
 severity_default = "error"
-exclude = ["tests/", "archive/", "scripts/"]
+exclude = ["tests/", "archive/", "scripts/", ".venv/"]
 output_format = "text"
 fail_on = "error"
 

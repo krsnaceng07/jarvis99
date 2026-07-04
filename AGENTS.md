@@ -60,13 +60,23 @@ Before writing or modifying ANY code, an agent MUST complete this read sequence 
 This sequence respects the 50% context budget (`docs/10_CONTEXT_LOADING_RULES.md`).
 
 ```
-Step 0 (Constitutional): Read this file (AGENTS.md) — Agent Constitution (you are here).
-Step 1 (Status): Read the Phase Status Board (§12 of AGENTS.md).
-Step 2 (Navigation): Read 60_MASTER_INDEX.md (Master Index).
-Step 3 (Specification): Locate and read current Phase Specification (e.g. docs/76_PHASE_14_API_GATEWAY_SPECIFICATION.md).
-Step 4 (Governance): Read all Engineering Governance documents in the `.antigravity/` directory.
-Step 5 (Targeted): Read ONLY required standards & target files (never load whole folders/packages).
-Step 6 (Verification): Produce a summary of understanding showing limits and requirements.
+BOOT
+↓
+Read `.ai/RESUME_STATE.md` -> If token exists, jump EXACTLY to that state
+↓
+Read `.ai/LOCKS.md` -> If target is locked, STOP or wait
+↓
+Read `.ai/CHECKPOINT.md` & `.ai/BUILD_SESSION.md` -> Know exactly where we are
+↓
+Read `.ai/PROJECT_STATE.md`
+↓
+If milestone frozen -> Do not reopen
+↓
+Read `.ai/CURRENT_TASK.md`
+↓
+Read required docs only (via `.ai/CONTEXT_INDEX.md`)
+↓
+Continue Exactly from Checkpoint
 ```
 
 **Boot Discipline (Prohibited Expressions):**
@@ -85,7 +95,11 @@ Instead, the agent must output this structured header explicitly before executin
 - **STOP Conditions:** <applicable stop rules>
 - **Waiting for approval:** (Wait for Architect approval before making code changes)
 
-**Forbidden:** Reading the entire `docs/` folder, or all of `core/**`, in one session. (Violates Rule 1 Pillar + Context Budget Rule.)
+**Forbidden:** 
+- Reading the entire `docs/` folder, or all of `core/**`, in one session. 
+- Re-reading past milestone reports or rebuilding the entire context.
+- Modifying any file NOT explicitly listed in `.ai/CURRENT_TASK.md`.
+- Next Chat Boot MUST ONLY read a maximum of 10-15 state/changed files, NEVER the entire repository.
 
 ---
 
@@ -161,6 +175,21 @@ Freeze Validation (re-run full suite, confirm frozen interfaces unchanged)
         │
         ▼
 Archive (commit with conventional message per docs/44_GIT_WORKFLOW.md)
+```
+
+### 5.1 Freeze Workflow
+```
+Architect Approval
+        ↓
+Freeze milestone
+        ↓
+Update `.ai/FREEZE_LEDGER.md`
+        ↓
+Archive report
+        ↓
+Update `.ai/PROJECT_STATE.md`
+        ↓
+STOP
 ```
 
 **A "Mini Quality Gate" =** ruff format + ruff check + mypy + pytest (affected) + coverage (affected).
@@ -289,6 +318,14 @@ Every milestone gate and the final gate must satisfy:
 
 **Tooling config:** `pyproject.toml` → ruff `line-length=88, select=[E,F,W,I]`, mypy `strict=true`, pytest `asyncio_mode=auto`.
 
+### 9.1 Verification Strategy (Incremental)
+NEVER run the entire verification suite on every change. 
+Use the following rule instead:
+- **Changed python file?** → Run `mypy` on that file ONLY.
+- **Changed formatting?** → Run `ruff` on that file ONLY.
+- **Changed tests?** → Run `pytest` on that test ONLY.
+- **Changed architecture?** → Run `dogfood` script.
+
 ---
 
 ## 10. Milestone Report Format
@@ -341,6 +378,25 @@ Awaiting approval before proceeding. Not proceeding.
   """
   ```
 
+### 11.1 The Runtime-Driven Rule (Code First Policy)
+To prevent agents from getting stuck in "documentation loops", the following strict rules apply to all execution:
+
+**RULE 1: No Documentation First**
+- Never start a build step by updating dashboards, roadmaps, or executive reports.
+- Dashboards are the VERY LAST step of a milestone.
+
+**RULE 2: Execution Order**
+1. Code First (Python).
+2. Tests Second.
+3. Review Third.
+4. Freeze Fourth.
+5. Documentation Last (Dashboards/Roadmaps).
+
+**RULE 3: The Code-to-Markdown Ratio**
+- Milestone completion reports MUST show more Python/Test files modified than Markdown files.
+- If `Markdown Modified > Python Modified`, the milestone is an automatic **FAIL** and will be rejected by the Architect.
+- **Budget:** 95% Coding, 5% Documentation.
+
 ---
 
 ## 12. Phase Status Board
@@ -356,7 +412,7 @@ Maintain this board. When a phase freezes, add one line here and set its spec ST
 | 16 | `AGENTS.md` | ✅ FROZEN (2026-06-29) | 193 passed |
 | 17 | `docs/78_PHASE_17_AUTHENTICATION_AUTHORIZATION_SPECIFICATION.md` | ✅ FROZEN (2026-06-30) | 288 passed |
 | 18 | `docs/79_PHASE_18_DYNAMIC_SKILL_FRAMEWORK_SPECIFICATION.md` | ✅ FROZEN (2026-06-30) | 443 passed (155 skill) |
-| 19 | `docs/80_PHASE_19_REAL_MEMORY_ARCHITECTURE_SPECIFICATION.md` | 🟡 IN PROGRESS (2026-07-03) — M5.5.1.A/B/C APPROVED; D in progress; spec frozen 2026-06-30 | 68 passed (growing) |
+| 19 | `docs/80_PHASE_19_REAL_MEMORY_ARCHITECTURE_SPECIFICATION.md` | 🟡 IN PROGRESS (2026-07-04) — M5.5.1 FROZEN; M5.5.2 FROZEN; spec frozen 2026-06-30 | 179 passed (growing) |
 
 **M5.5.1 (Architecture Linter) sub-milestone board:**
 
@@ -365,9 +421,10 @@ Maintain this board. When a phase freezes, add one line here and set its spec ST
 | M5.5.1.A | Skeleton (engine, registry, reporters, CLI) | ✅ APPROVED | 25 | 2026-07-03 |
 | M5.5.1.B | LayerDirection rules (LR-1..5) | ✅ APPROVED | +20 (48) | 2026-07-03 |
 | M5.5.1.C | Repository rules (NBR-1..4) | ✅ APPROVED | +20 (68) | 2026-07-03 |
-| M5.5.1.D | Engine rules (NSD-1..3) | 🟡 IN PROGRESS | +12 (→80) | — |
-| M5.5.1.E | DTO + UI-core rules (NDE-1..3, NUC-1..2) | ❌ not started | +20 (→100) | — |
-| M5.5.1.F | NCP + CI + KG stubs + Freeze + Dogfooding | ❌ not started | +final | — |
+| M5.5.1.D | Engine rules (NSD-1..3) | ✅ APPROVED | +12 (80) | 2026-07-03 |
+| M5.5.1.E | DTO + UI-core rules (NDE-1..3, NUC-1..2) | ✅ APPROVED | +33 (113) | 2026-07-04 |
+| M5.5.1.F | NCP + CI + KG stubs + Freeze + Dogfooding | ✅ FROZEN | +final (118) | 2026-07-04 |
+| M5.5.2 | Dependency Graph Validator (DGV) | ✅ FROZEN | +61 (179) | 2026-07-04 |
 
 > **Live tracking:** [JARVIS_EXECUTIVE_DASHBOARD.md](JARVIS_EXECUTIVE_DASHBOARD.md) is updated at every sub-milestone approval.
 
