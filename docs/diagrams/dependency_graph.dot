@@ -181,6 +181,9 @@ digraph dependencies {
   "scripts.__init__" [color="white"];
   "scripts.architecture_linter" [color="white"];
   "scripts.dgv" [color="white"];
+  "scripts.governance_check" [color="white"];
+  "scripts.quality_gate" [color="white"];
+  "scripts.trace_check" [color="white"];
   "skills.__init__" [color="white"];
   "skills.cli" [color="white"];
   "tests.__init__" [color="white"];
@@ -194,6 +197,7 @@ digraph dependencies {
   "tests.test_db" [color="white"];
   "tests.test_dgv" [color="white"];
   "tests.test_events" [color="white"];
+  "tests.test_governance_check" [color="white"];
   "tests.test_graph" [color="white"];
   "tests.test_health" [color="white"];
   "tests.test_kernel" [color="white"];
@@ -213,6 +217,7 @@ digraph dependencies {
   "tests.test_pc" [color="white"];
   "tests.test_persistent_execution" [color="white"];
   "tests.test_personal_memory" [color="white"];
+  "tests.test_quality_gate" [color="white"];
   "tests.test_reasoning" [color="white"];
   "tests.test_reasoning_engine" [color="white"];
   "tests.test_registry" [color="white"];
@@ -233,6 +238,7 @@ digraph dependencies {
   "tests.test_swarm" [color="white"];
   "tests.test_tool_orchestrator" [color="white"];
   "tests.test_tools" [color="white"];
+  "tests.test_trace_check" [color="white"];
   "tests.test_vector" [color="white"];
   "tests.test_workflow_automation" [color="white"];
   "api.dependencies" -> "api.dto" [color="black"];
@@ -724,6 +730,7 @@ digraph dependencies {
   "tests.test_events" -> "core.events" [color="black"];
   "tests.test_events" -> "core.exceptions" [color="black"];
   "tests.test_events" -> "core.interfaces" [color="black"];
+  "tests.test_governance_check" -> "scripts.governance_check" [color="black"];
   "tests.test_graph" -> "core.config" [color="black"];
   "tests.test_graph" -> "core.exceptions" [color="black"];
   "tests.test_graph" -> "core.memory.database" [color="black"];
@@ -835,6 +842,7 @@ digraph dependencies {
   "tests.test_personal_memory" -> "core.memory.models" [color="black"];
   "tests.test_personal_memory" -> "core.memory.personal" [color="black"];
   "tests.test_personal_memory" -> "core.memory.repository" [color="black"];
+  "tests.test_quality_gate" -> "scripts.quality_gate" [color="black"];
   "tests.test_reasoning" -> "core.config" [color="black"];
   "tests.test_reasoning" -> "core.exceptions" [color="black"];
   "tests.test_reasoning" -> "core.memory.database" [color="black"];
@@ -980,6 +988,7 @@ digraph dependencies {
   "tests.test_tools" -> "core.tools.runtime" [color="black"];
   "tests.test_tools" -> "core.tools.sandbox" [color="black"];
   "tests.test_tools" -> "core.tools.security" [color="black"];
+  "tests.test_trace_check" -> "scripts.trace_check" [color="black"];
   "tests.test_vector" -> "core.exceptions" [color="black"];
   "tests.test_vector" -> "core.memory.embeddings" [color="black"];
   "tests.test_vector" -> "core.memory.interfaces" [color="black"];

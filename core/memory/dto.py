@@ -123,6 +123,8 @@ class KGEdgeType(str, Enum):
 class MemoryIdentity(BaseModel):
     """Immutable identity fields for a memory record. Frozen contract (§16.1)."""
 
+    schema_version: Literal["1.0"] = "1.0"
+
     memory_id: UUID = Field(default_factory=uuid4)
     owner_id: UUID
     session_id: Optional[UUID] = None
@@ -144,6 +146,8 @@ class MemoryIdentity(BaseModel):
 class MemoryProvenance(BaseModel):
     """Provenance metadata for a memory record. Frozen contract (§16.2)."""
 
+    schema_version: Literal["1.0"] = "1.0"
+
     origin: str
     derived_from: Optional[List[UUID]] = None
     created_by: str
@@ -161,6 +165,8 @@ class MemoryProvenance(BaseModel):
 
 class MemoryMetadata(BaseModel):
     """Extensible metadata for a memory record."""
+
+    schema_version: Literal["1.0"] = "1.0"
 
     importance: float = Field(ge=0.0, le=1.0, default=0.5)
     token_count: int = Field(ge=0, default=0)
@@ -268,6 +274,8 @@ class RetrievalRequest(BaseModel):
 
 class RecallMetadata(BaseModel):
     """Metadata about a retrieval operation."""
+
+    schema_version: Literal["1.0"] = "1.0"
 
     query_time_ms: float = 0.0
     chunks_searched: int = 0

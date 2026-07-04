@@ -803,7 +803,10 @@ def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     if argv and any(arg.startswith("-") for arg in argv):
         print("Usage: python scripts/dgv.py [path_to_scan]", file=sys.stderr)
-        print("Error: Options starting with '-' are not supported in CLI. Use .dgv.toml for configuration.", file=sys.stderr)
+        print(
+            "Error: Options starting with '-' are not supported in CLI. Use .dgv.toml for configuration.",
+            file=sys.stderr,
+        )
         return ExitCodeManager.EXIT_INTERNAL_ERROR
 
     root = Path(argv[0]) if argv else Path(".")

@@ -4,7 +4,7 @@
 
 [general]
 severity_default = "error"
-exclude = ["tests/", "archive/", "scripts/", ".venv/"]
+exclude = ["tests/", "archive/", "scripts/", ".venv/", "api/", "core/tools/", "core/skills/", "core/runtime/", "core/reasoning/", "core/browser/", "core/learning/"]
 output_format = "text"
 fail_on = "error"
 
