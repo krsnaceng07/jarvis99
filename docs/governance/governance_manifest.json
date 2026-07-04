@@ -1,0 +1,17 @@
+{
+  "required_documents": [
+    "docs/governance/pre_milestone_gate.md",
+    "docs/governance/architecture_review_board.md",
+    "docs/governance/design_review_gate.md",
+    "docs/governance/threat_modeling.md",
+    "docs/governance/compatibility_matrix.md",
+    "docs/governance/engineering_decision_log.md",
+    "docs/governance/rfc_process.md",
+    "docs/governance/quality_gates_engine.md",
+    "docs/governance/architecture_linter.md",
+    "docs/governance/dependency_graph_validator.md",
+    "docs/governance/decision_traceability.md",
+    "docs/governance/release_readiness_gate.md",
+    "docs/governance/ci_cd_pipeline.md"
+  ]
+}

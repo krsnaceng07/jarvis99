@@ -1,0 +1,72 @@
+[
+  {
+    "trace_id": "TRACE-19-M6-001",
+    "rfc": "\u2014",
+    "adr": "ADR-005",
+    "spec": "docs/contracts/knowledge_graph_contract.md \u00a73.1",
+    "code": "core/memory/dto.py:KGNodeType",
+    "test": "tests/test_memory_dto.py",
+    "doc": "docs/contracts/knowledge_graph_contract.md \u00a73.1",
+    "status": "CLOSED"
+  },
+  {
+    "trace_id": "TRACE-19-M6-002",
+    "rfc": "\u2014",
+    "adr": "ADR-005",
+    "spec": "docs/contracts/knowledge_graph_contract.md \u00a73.1",
+    "code": "core/memory/dto.py:KGEdgeType",
+    "test": "tests/test_memory_dto.py",
+    "doc": "docs/contracts/knowledge_graph_contract.md \u00a73.1",
+    "status": "CLOSED"
+  },
+  {
+    "trace_id": "TRACE-19-M6-003",
+    "rfc": "\u2014",
+    "adr": "ADR-005",
+    "spec": "docs/contracts/knowledge_graph_contract.md \u00a73.1",
+    "code": "core/memory/dto.py:KGNode",
+    "test": "tests/test_memory_dto.py",
+    "doc": "docs/contracts/knowledge_graph_contract.md \u00a73.1",
+    "status": "CLOSED"
+  },
+  {
+    "trace_id": "TRACE-19-M6-004",
+    "rfc": "\u2014",
+    "adr": "ADR-005",
+    "spec": "docs/contracts/knowledge_graph_contract.md \u00a73.1",
+    "code": "core/memory/dto.py:KGEdge",
+    "test": "tests/test_memory_dto.py",
+    "doc": "docs/contracts/knowledge_graph_contract.md \u00a73.1",
+    "status": "CLOSED"
+  },
+  {
+    "trace_id": "TRACE-19-M6-005",
+    "rfc": "\u2014",
+    "adr": "\u2014",
+    "spec": "docs/contracts/knowledge_graph_contract.md \u00a73.2",
+    "code": "\u2014",
+    "test": "\u2014",
+    "doc": "docs/contracts/knowledge_graph_contract.md \u00a73.2",
+    "status": "OPEN"
+  },
+  {
+    "trace_id": "TRACE-19-M5.5.3-001",
+    "rfc": "\u2014",
+    "adr": "\u2014",
+    "spec": "docs/phases/phase19/m5_5_engineering_governance_freeze.md",
+    "code": "scripts/trace_check.py",
+    "test": "tests/test_trace_check.py",
+    "doc": "docs/governance/decision_traceability.md",
+    "status": "CLOSED"
+  },
+  {
+    "trace_id": "TRACE-19-M5.5.3-002",
+    "rfc": "\u2014",
+    "adr": "\u2014",
+    "spec": "docs/phases/phase19/m5_5_engineering_governance_freeze.md",
+    "code": "scripts/governance_check.py",
+    "test": "tests/test_governance_check.py",
+    "doc": "docs/governance/pre_milestone_gate.md",
+    "status": "CLOSED"
+  }
+]

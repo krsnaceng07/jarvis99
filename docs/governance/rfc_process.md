@@ -1,6 +1,6 @@
 # RFC Process — Meta-Workflow
 
-**Status:** PROPOSED (binding from Phase 20 onwards; recommended for any major post-M6 work)
+**Status:** ✅ FROZEN — 2026-07-03 (M5.5.0) (binding from Phase 20 onwards; recommended for any major post-M6 work)
 **Date:** 2026-07-03
 **Authority:** AGENTS.md §1, §5, §6, §8
 **Related:** ARB, DRG, Pre-Milestone Gate, Phase Specification
