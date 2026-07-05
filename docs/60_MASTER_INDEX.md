@@ -103,6 +103,11 @@ Applies to all files written under the `docs/` folder in Phase 0.
 - [79_PHASE_18_DYNAMIC_SKILL_FRAMEWORK_SPECIFICATION.md](file:///e:/jarvis/docs/79_PHASE_18_DYNAMIC_SKILL_FRAMEWORK_SPECIFICATION.md) – Phase 18 Dynamic Skill Framework spec. **STATUS: FROZEN**
 - [80_PHASE_19_REAL_MEMORY_ARCHITECTURE_SPECIFICATION.md](file:///e:/jarvis/docs/80_PHASE_19_REAL_MEMORY_ARCHITECTURE_SPECIFICATION.md) – Phase 19 Real Memory Architecture spec. **STATUS: FROZEN**
 - [81_PHASE_19_IMPLEMENTATION_PLAN.md](file:///e:/jarvis/docs/81_PHASE_19_IMPLEMENTATION_PLAN.md) – Phase 19 Real Memory Architecture implementation plan. **STATUS: FROZEN**
+- [86_PHASE_25_BROWSER_RUNTIME_SPECIFICATION.md](file:///e:/jarvis/docs/86_PHASE_25_BROWSER_RUNTIME_SPECIFICATION.md) – Phase 25 Browser Runtime & Execution Journal spec. **STATUS: FROZEN**
+- [87_PHASE_26_MULTI_AGENT_PERSISTENT_RECOVERY_SPECIFICATION.md](file:///e:/jarvis/docs/87_PHASE_26_MULTI_AGENT_PERSISTENT_RECOVERY_SPECIFICATION.md) – Phase 26 Multi-Agent Runtime & Persistent Session Recovery spec. **STATUS: FROZEN**
+- [88_PHASE_27_OBSERVABILITY_COST_GOVERNANCE_SPECIFICATION.md](file:///e:/jarvis/docs/88_PHASE_27_OBSERVABILITY_COST_GOVERNANCE_SPECIFICATION.md) – Phase 27 Observability, Cost Governance & Live Execution Streaming spec. **STATUS: FROZEN**
+- [90_PHASE_28_SECURITY_VAULT_HARDENING_SPECIFICATION.md](file:///e:/jarvis/docs/90_PHASE_28_SECURITY_VAULT_HARDENING_SPECIFICATION.md) – Phase 28 Security & Vault Hardening spec. **STATUS: FROZEN**
+- [91_PHASE_29_ADVANCED_VAULT_OPERATIONS_SPECIFICATION.md](file:///e:/jarvis/docs/91_PHASE_29_ADVANCED_VAULT_OPERATIONS_SPECIFICATION.md) – Phase 29 Advanced Vault Operations spec. **STATUS: FROZEN**
 
 ## Responsibilities
 - **Documentation Agent:** Manages links updates in this index after compiling documentation files.

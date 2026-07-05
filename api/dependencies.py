@@ -22,7 +22,7 @@ container raises JarvisSystemError (SYSTEM_001), which middleware maps to
 an ErrorEnvelope (503). Dependency direction is api -> core only (C5).
 """
 
-from typing import AsyncGenerator, Awaitable, Callable, List, Optional
+from typing import Any, AsyncGenerator, Awaitable, Callable, List, Optional
 from uuid import UUID
 
 from fastapi import Depends
@@ -174,6 +174,15 @@ def get_security_repository(
     return kernel.container.resolve(SecurityRepository)
 
 
+def get_vault_manager(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the VaultManager singleton."""
+    from core.security.vault import VaultManager
+
+    return kernel.container.resolve(VaultManager)
+
+
 def get_authentication_service(
     kernel: Kernel = Depends(get_kernel),
 ) -> AuthenticationService:
@@ -186,6 +195,33 @@ def get_rbac_service(
 ) -> RbacService:
     """FastAPI dependency: resolve the RbacService singleton."""
     return kernel.container.resolve(RbacService)
+
+
+def get_sync_manager(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the SyncManager singleton."""
+    from core.security.sync import SyncManager
+
+    return kernel.container.resolve(SyncManager)
+
+
+def get_federation_manager(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the FederationManager singleton."""
+    from core.runtime.federation import FederationManager
+
+    return kernel.container.resolve(FederationManager)
+
+
+def get_admin_manager(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the AdminManager singleton."""
+    from core.runtime.admin import AdminManager
+
+    return kernel.container.resolve(AdminManager)
 
 
 def require_permissions(
@@ -209,3 +245,23 @@ def require_permissions(
         return ctx
 
     return dependency
+
+
+def get_deployment_health_manager(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the DeploymentHealthManager singleton."""
+    from core.runtime.deployment import DeploymentHealthManager
+
+    return kernel.container.resolve(DeploymentHealthManager)
+
+
+def get_mission_manager(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the MissionManager singleton."""
+    from core.runtime.mission import MissionManager
+
+    return kernel.container.resolve(MissionManager)
+
+

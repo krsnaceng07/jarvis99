@@ -13,18 +13,25 @@ from core.config import Settings
 from core.exceptions import BudgetExceededError
 from core.interfaces import EventBusInterface, InterAgentMessage
 from core.reasoning.cost import CostGovernor
+from core.reasoning.dependency_graph import DependencyBuilder
+from core.reasoning.dispatcher import ToolDispatcher
 from core.reasoning.engine_dto import (
     EngineMetrics,
     FailureType,
     SessionState,
 )
+from core.reasoning.execution_plan import ExecutionPlanCompiler
+from core.reasoning.goal import Goal, GoalAnalyzer
 from core.reasoning.orchestrator import ExecutionOrchestrator
 from core.reasoning.plan_version_manager import PlanVersionManager
 from core.reasoning.planner import ReasoningSession
+from core.reasoning.planner_validator import PlannerValidator
 from core.reasoning.planning_service import PlanningService
 from core.reasoning.prompt import PromptBuilder
 from core.reasoning.reflection import ReflectionEngine
 from core.reasoning.router import ModelRouter
+from core.reasoning.scheduler import ExecutionScheduler
+from core.reasoning.task import TaskGenerator
 
 
 class ReasoningExecutionEngine:
@@ -351,3 +358,188 @@ class ReasoningExecutionEngine:
             },
         )
         await self.event_bus.publish("engine.state.transition", msg)
+
+    async def execute_goal_new(
+        self,
+        goal: str,
+        budget: float = 10.0,
+        db_session: Optional[Any] = None,
+        memory_service: Optional[Any] = None,
+        dispatcher: Optional[ToolDispatcher] = None,
+    ) -> Dict[str, Any]:
+        """E2E execute a user goal from memory retrieval to planning, validation, and wave runs.
+
+        Args:
+            goal: Target request goal statement.
+            budget: Execution budget cap.
+            db_session: Optional database session context.
+            memory_service: MemoryEngine or memory retrieval service instance.
+            dispatcher: ToolDispatcher routing executor requests.
+        """
+        trace_id = uuid4()
+        session_id = uuid4()
+        session = ReasoningSession(session_id, trace_id, budget, db_session)
+
+        metrics = EngineMetrics(
+            start_time=datetime.now(timezone.utc),
+            total_cost=Decimal("0.0"),
+        )
+        start_perf = time.perf_counter()
+
+        # 1. Retrieve memories/context facts
+        await self.transition_state(trace_id, SessionState.PLANNING)
+        memories_list = []
+        if memory_service:
+            try:
+                # Use hybrid search if search helper exists, else fallback search
+                if hasattr(memory_service, "search") and hasattr(
+                    memory_service.search, "search_hybrid"
+                ):
+                    records = await memory_service.search.search_hybrid(
+                        query=goal, limit=5
+                    )
+                    memories_list = [r.content for r in records]
+                elif hasattr(memory_service, "search_hybrid"):
+                    records = await memory_service.search_hybrid(query=goal, limit=5)
+                    memories_list = [r.content for r in records]
+            except Exception:
+                pass
+
+        # 2. Analyze goal and constraints
+        goal_analyzer = GoalAnalyzer()
+        goal_obj = Goal(goal_text=goal)
+        analysis = goal_analyzer.analyze(goal_obj)
+
+        # Check budget limit before execution
+        try:
+            await self.cost_governor.check_budget_limits(Decimal("0.0"))
+        except BudgetExceededError as err:
+            return await self.abort_execution(
+                trace_id,
+                session,
+                metrics,
+                start_perf,
+                FailureType.BudgetFailure,
+                str(err),
+            )
+
+        # 3. Decompose goal to tasks
+        task_gen = TaskGenerator()
+        tasks = task_gen.decompose(analysis, goal)
+
+        # 4. Build dependency graph
+        dep_builder = DependencyBuilder(tasks)
+        try:
+            dep_builder.validate_dag()
+        except Exception as err:
+            return await self.abort_execution(
+                trace_id,
+                session,
+                metrics,
+                start_perf,
+                FailureType.PlannerFailure,
+                f"Dependency DAG invalid: {err}",
+            )
+
+        # 5. Schedule parallel waves
+        scheduler = ExecutionScheduler(dep_builder)
+        waves = scheduler.schedule_waves()
+
+        # 6. Pre-execution plan validation check
+        validator = PlannerValidator()
+        try:
+            validator.validate_plan(goal_obj, analysis, tasks, waves, cost_limit=budget)
+        except Exception as err:
+            return await self.abort_execution(
+                trace_id,
+                session,
+                metrics,
+                start_perf,
+                FailureType.PlannerFailure,
+                f"Plan validation failed: {err}",
+            )
+
+        # 7. Compile the execution plan
+        compiler = ExecutionPlanCompiler()
+        plan = compiler.compile(goal_obj, analysis, tasks, waves)
+        self.version_manager.create_version(plan)
+
+        # 8. Execution loop across waves
+        wave_idx = 0
+        dispatcher = dispatcher or ToolDispatcher()
+        context = {"memory_service": memory_service}
+
+        while wave_idx < len(plan.waves):
+            wave = plan.waves[wave_idx]
+            session.current_wave = wave_idx
+            metrics.wave_count += 1
+
+            # Check budget checkpoint before wave runs
+            try:
+                await self.cost_governor.check_budget_limits(Decimal("0.0"))
+            except BudgetExceededError as err:
+                return await self.abort_execution(
+                    trace_id,
+                    session,
+                    metrics,
+                    start_perf,
+                    FailureType.BudgetFailure,
+                    str(err),
+                )
+
+            await self.transition_state(trace_id, SessionState.EXECUTING)
+
+            exec_start = time.perf_counter()
+            try:
+                wave_result = await self.orchestrator.execute_wave_new(
+                    wave=wave,
+                    plan=plan,
+                    session=session,
+                    dispatcher=dispatcher,
+                    context=context,
+                )
+            except Exception as err:
+                return await self.abort_execution(
+                    trace_id,
+                    session,
+                    metrics,
+                    start_perf,
+                    FailureType.ToolFailure,
+                    f"Execution wave runtime crash: {err}",
+                )
+            metrics.execution_time += time.perf_counter() - exec_start
+
+            # Wave outcomes validation
+            if wave_result.status == "FAILURE":
+                return await self.abort_execution(
+                    trace_id,
+                    session,
+                    metrics,
+                    start_perf,
+                    FailureType.ToolFailure,
+                    "Orchestrator wave task run failed.",
+                )
+
+            wave_idx += 1
+
+        # Completed successfully
+        await self.transition_state(trace_id, SessionState.COMPLETED)
+
+        metrics.end_time = datetime.now(timezone.utc)
+        metrics.total_duration = time.perf_counter() - start_perf
+        metrics.total_cost = Decimal(str(session.total_cost))
+        metrics.total_tokens = session.total_tokens
+
+        # Persist session updates
+        if db_session:
+            await session.save_session_record()
+
+        return {
+            "status": "SUCCESS",
+            "state": SessionState.COMPLETED,
+            "metrics": metrics.model_dump(),
+            "plan_version": getattr(plan, "plan_version", plan.metadata.get("plan_version", 1)),
+            "waves_executed": wave_idx,
+            "memories_loaded": len(memories_list),
+        }
+

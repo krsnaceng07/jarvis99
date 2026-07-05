@@ -48,6 +48,8 @@ class SecuritySeedService:
             "workflow.execute",
             "workflow.read",
             "audit.read",
+            "vault.admin",
+            "platform.admin",
         ]
         permissions_map = {}
         for scope in scopes:

@@ -95,9 +95,6 @@ class AgentRuntime:
                         code="AGENT_004", message="Task execution cancelled."
                     )
 
-                # Create step coroutine execution reference
-                step_coro = step_executor(task, step_idx, self.context)
-
                 # 3. WAIT State
                 self.transition_to(AgentExecutionState.WAIT)
                 await self.token.check_paused()
@@ -106,7 +103,8 @@ class AgentRuntime:
                         code="AGENT_004", message="Task execution cancelled."
                     )
 
-                # Await execution step
+                # Create step coroutine execution reference and await it
+                step_coro = step_executor(task, step_idx, self.context)
                 step_result = await step_coro
                 results.append(step_result)
 

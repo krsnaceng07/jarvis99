@@ -475,7 +475,9 @@ async def test_engine_db_and_failures() -> None:
     mock_cost_gov = MagicMock(spec=CostGovernor)
 
     # Mock DB session
-    mock_db = AsyncMock()
+    mock_db = MagicMock()
+    mock_db.add = MagicMock()
+    mock_db.flush = AsyncMock()
 
     mock_reflection = MagicMock(spec=ReflectionEngine)
     mock_reflection.reflect_and_correct = AsyncMock(return_value={"status": "RETRY"})

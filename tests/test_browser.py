@@ -92,9 +92,11 @@ def browser_setup() -> Dict[str, Any]:
 @pytest.mark.asyncio
 async def test_dynamic_sdk_import() -> None:
     """Verify that jarvis.sdk.* namespaces are importable from sys.modules."""
-    # Ensure namespaces are loaded
+    # Ensure namespaces are loaded by loading the kernel module first
     import jarvis.sdk.browser
     import jarvis.sdk.skills
+
+    import core.kernel  # noqa: F401
 
     assert jarvis.sdk.skills.JarvisSkill is not None
     assert jarvis.sdk.browser.JarvisBrowser is not None

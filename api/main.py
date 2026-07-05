@@ -14,10 +14,11 @@ DO NOT CHANGE CONTRACTS HERE.
 Contracts come only from Phase Specification.
 """
 
+import inspect
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator, Awaitable, TypeVar, cast
 
 from fastapi import FastAPI
 
@@ -26,10 +27,38 @@ from api.dependencies import set_kernel
 from api.middleware import RequestStateMiddleware, register_exception_handlers
 from api.middleware.auth_middleware import AuthenticationMiddleware
 from api.middleware.rate_limit_middleware import RateLimitMiddleware
-from api.routes import agent, auth, health, skills, users, workflow
+from api.routes import (
+    admin,
+    agent,
+    auth,
+    federation,
+    health,
+    missions,
+    platform,
+    skills,
+    sync,
+    users,
+    vault,
+    workflow,
+)
+from api.routes.observability import (
+    metrics_router,
+    observability_router,
+    telemetry_ws_router,
+)
 from core.kernel import Kernel
 
 logger = logging.getLogger("api.main")
+
+T = TypeVar("T")
+
+
+async def _resolve_dependency(container: Any, service_type: type[T]) -> T:
+    """Resolve a dependency from the container, awaiting it if the container returns an awaitable."""
+    resolved = container.resolve(service_type)
+    if inspect.isawaitable(resolved):
+        return await cast(Awaitable[T], resolved)
+    return cast(T, resolved)
 
 
 @asynccontextmanager
@@ -38,6 +67,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     kernel = Kernel()
     await kernel.initialize()
 
+    # Register BaseTelemetryBroadcaster before boot so ObservabilityService can resolve it
+    from api.broadcaster import TelemetryBroadcaster
+    from core.observability.broadcaster_interface import BaseTelemetryBroadcaster
+
+    broadcaster = TelemetryBroadcaster()
+    kernel.container.register_singleton(BaseTelemetryBroadcaster, broadcaster)
+
     config_path = os.getenv("JARVIS_CONFIG_PATH", "config.yaml")
     boot_ok = await kernel.boot(config_path)
     if not boot_ok:
@@ -45,11 +81,28 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     set_kernel(kernel)
 
+    # Initialize observability routes context using resolved dependencies
+    from api.routes.observability import set_observability_deps
+    from core.observability.service import ObservabilityService
+
+    try:
+        obs_service = await _resolve_dependency(kernel.container, ObservabilityService)
+        set_observability_deps(
+            span_repo=obs_service.span_repo,
+            cost_governor=obs_service.cost_gov,
+            health_probe=obs_service.health_probe,
+            broadcaster=broadcaster,
+            auth_required=os.getenv("JARVIS_TELEMETRY_AUTH_REQUIRED", "false").lower()
+            == "true",
+        )
+    except Exception as e:
+        logger.warning("Observability dependency binding failed: %s", str(e))
+
     # Trigger resume manager startup recovery (Phase 15)
     try:
         from core.tools.resume_manager import ResumeManager
 
-        resume_manager = kernel.container.resolve(ResumeManager)
+        resume_manager = await _resolve_dependency(kernel.container, ResumeManager)
         await resume_manager.resume_all()
     except Exception as e:
         logger.warning("Startup recovery failed: %s", str(e))
@@ -89,9 +142,20 @@ def create_app() -> FastAPI:
     app.include_router(agent.router, prefix="/api/v1")
     app.include_router(workflow.router, prefix="/api/v1")
     app.include_router(skills.router, prefix="/api/v1")
+    app.include_router(vault.router, prefix="/api/v1")
+    app.include_router(sync.router, prefix="/api/v1")
+    app.include_router(federation.router, prefix="/api/v1")
+    app.include_router(admin.router)
+    app.include_router(observability_router)
+    app.include_router(platform.router)
+    app.include_router(missions.router)
 
     # 5. Mount WebSocket telemetry endpoint under /ws/v1
     app.include_router(stream_service.router, prefix="/ws/v1")
+    app.include_router(telemetry_ws_router)
+
+    # 6. Mount Prometheus endpoint at root level
+    app.include_router(metrics_router)
 
     return app
 

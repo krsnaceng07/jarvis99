@@ -210,6 +210,7 @@ async def test_persistence_service_initialize_subscribes_events() -> None:
         "workflow.step.started",
         "workflow.step.completed",
         "workflow.step.failed",
+        "journal.iteration.recorded",
     ]
     assert mock_bus.subscribe.call_count == len(expected_topics)
     subscribed_topics = [call.args[0] for call in mock_bus.subscribe.call_args_list]

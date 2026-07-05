@@ -5,7 +5,7 @@ Production-grade event bus utilizing Redis Streams for asynchronous message rout
 
 import asyncio
 import logging
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Set
 from uuid import uuid4
 
 import redis.asyncio as aioredis
@@ -39,6 +39,7 @@ class RedisEventBus(EventBus):
         ] = {}
         self._active: bool = False
         self._listen_task: Optional[asyncio.Task[None]] = None
+        self._dispatch_tasks: Set[asyncio.Task[None]] = set()
 
     async def initialize(self) -> None:
         """Establish connection pool to the Redis instance.
@@ -82,6 +83,15 @@ class RedisEventBus(EventBus):
                 await self._listen_task
             except asyncio.CancelledError:
                 pass
+            self._listen_task = None
+
+        pending_tasks = [task for task in self._dispatch_tasks if not task.done()]
+        for task in pending_tasks:
+            task.cancel()
+        if pending_tasks:
+            await asyncio.gather(*pending_tasks, return_exceptions=True)
+        self._dispatch_tasks.clear()
+
         if self.client:
             await self.client.close()
             self.client = None
@@ -91,6 +101,12 @@ class RedisEventBus(EventBus):
         """Deallocate registries and clear listeners."""
         self._subscribers.clear()
         self._active = False
+        pending_tasks = [task for task in self._dispatch_tasks if not task.done()]
+        for task in pending_tasks:
+            task.cancel()
+        if pending_tasks:
+            await asyncio.gather(*pending_tasks, return_exceptions=True)
+        self._dispatch_tasks.clear()
         logger.info("RedisEventBus shutdown complete.")
 
     async def publish(self, topic: str, message: InterAgentMessage) -> bool:
@@ -198,11 +214,13 @@ class RedisEventBus(EventBus):
                             # Dispatch to all callbacks for this topic
                             listeners = self._subscribers.get(stream_name, [])
                             for sub_id, callback in listeners:
-                                asyncio.create_task(
+                                task = asyncio.create_task(
                                     self._safe_dispatch(
                                         callback, msg, sub_id, stream_name
                                     )
                                 )
+                                self._dispatch_tasks.add(task)
+                                task.add_done_callback(self._dispatch_tasks.discard)
                         except Exception as parse_err:
                             logger.error(
                                 "Failed parsing message payload from stream %s: %s",

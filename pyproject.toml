@@ -20,6 +20,7 @@ dependencies = [
     "websockets>=13.0",
     "bcrypt>=4.0.0",
     "pyjwt>=2.8.0",
+    "cryptography>=43.0.0",
 ]
 
 [dependency-groups]
@@ -32,6 +33,7 @@ dev = [
     "ruff>=0.4.4",
     "mypy>=1.10.0",
     "types-pyyaml>=6.0.12.20240311",
+    "httpx2>=0.28.0",
 ]
 
 [tool.pytest.ini_options]

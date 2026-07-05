@@ -5,7 +5,7 @@ In-memory event bus implementation for development and testing profiles.
 
 import asyncio
 import logging
-from typing import Awaitable, Callable, Dict, List
+from typing import Awaitable, Callable, Dict, List, Set
 from uuid import uuid4
 
 from core.events.base import EventBus
@@ -23,6 +23,7 @@ class MemoryEventBus(EventBus):
             str, List[tuple[str, Callable[[InterAgentMessage], Awaitable[None]]]]
         ] = {}
         self._active: bool = False
+        self._dispatch_tasks: Set[asyncio.Task[None]] = set()
 
     async def initialize(self) -> None:
         """Initialize subscriptions map."""
@@ -37,12 +38,24 @@ class MemoryEventBus(EventBus):
     async def stop(self) -> None:
         """Deactivate event processing."""
         self._active = False
+        pending_tasks = [task for task in self._dispatch_tasks if not task.done()]
+        for task in pending_tasks:
+            task.cancel()
+        if pending_tasks:
+            await asyncio.gather(*pending_tasks, return_exceptions=True)
+        self._dispatch_tasks.clear()
         logger.info("MemoryEventBus stopped.")
 
     async def shutdown(self) -> None:
         """Clear all active subscriptions."""
         self._subscribers.clear()
         self._active = False
+        pending_tasks = [task for task in self._dispatch_tasks if not task.done()]
+        for task in pending_tasks:
+            task.cancel()
+        if pending_tasks:
+            await asyncio.gather(*pending_tasks, return_exceptions=True)
+        self._dispatch_tasks.clear()
         logger.info("MemoryEventBus shutdown complete.")
 
     async def publish(self, topic: str, message: InterAgentMessage) -> bool:
@@ -65,7 +78,9 @@ class MemoryEventBus(EventBus):
         listeners = self._subscribers.get(topic, [])
         for sub_id, callback in listeners:
             # Run subscriber callback in a background task to prevent blocking publisher
-            asyncio.create_task(self._safe_dispatch(callback, message, sub_id, topic))
+            task = asyncio.create_task(self._safe_dispatch(callback, message, sub_id, topic))
+            self._dispatch_tasks.add(task)
+            task.add_done_callback(self._dispatch_tasks.discard)
 
         return True
 

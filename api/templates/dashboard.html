@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JARVIS OS — Administration & Operations Console</title>
+    <!-- Modern Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #080710;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0c0;
+            --accent-purple: #8a2be2;
+            --accent-blue: #00d2ff;
+            --accent-green: #39ff14;
+            --accent-red: #ff007f;
+            --glass-blur: blur(12px);
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at 10% 20%, rgba(90, 40, 160, 0.15) 0%, transparent 40%),
+                              radial-gradient(circle at 90% 80%, rgba(0, 150, 200, 0.15) 0%, transparent 40%);
+        }
+
+        /* Authentication Page Overlay */
+        #auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(8, 7, 16, 0.95);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(20px);
+            transition: var(--transition-smooth);
+        }
+
+        .auth-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 40px;
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            backdrop-filter: var(--glass-blur);
+        }
+
+        .auth-card h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #ffffff 0%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .auth-card p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .form-control {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 14px 18px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 1rem;
+            outline: none;
+            transition: var(--transition-smooth);
+        }
+
+        .form-control:focus {
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.3);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            border: none;
+            outline: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-purple) 0%, #4b0082 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 20px rgba(138, 43, 226, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(138, 43, 226, 0.6);
+        }
+
+        /* Layout Container */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            background: rgba(8, 7, 16, 0.6);
+            border-right: 1px solid var(--card-border);
+            padding: 40px 24px;
+            display: flex;
+            flex-direction: column;
+            backdrop-filter: var(--glass-blur);
+        }
+
+        .sidebar-brand {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #ffffff 0%, var(--accent-blue) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 40px;
+            letter-spacing: -0.5px;
+        }
+
+        .nav-menu {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .nav-item a {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 14px 20px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 500;
+            transition: var(--transition-smooth);
+        }
+
+        .nav-item a:hover, .nav-item.active a {
+            background: var(--card-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--card-border);
+        }
+
+        .nav-item.active a {
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.15);
+        }
+
+        /* Main Content Panel */
+        .main-content {
+            flex: 1;
+            padding: 40px 60px;
+            overflow-y: auto;
+            max-height: 100vh;
+        }
+
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        .header-title h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .header-title p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        /* Glass Cards */
+        .grid-layout {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: var(--glass-blur);
+            transition: var(--transition-smooth);
+        }
+
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-3px);
+        }
+
+        .metric-title {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            font-family: 'Space Grotesk', sans-serif;
+            background: linear-gradient(135deg, #ffffff 0%, #a0a0c0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Diagnostics pulse indicators */
+        .pulse-indicator {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background-color: var(--accent-green);
+            box-shadow: 0 0 15px var(--accent-green);
+            animation: pulse-ring 2s infinite;
+        }
+
+        .pulse-indicator.degraded {
+            background-color: var(--accent-red);
+            box-shadow: 0 0 15px var(--accent-red);
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-weight: 600;
+        }
+
+        /* Config Forms */
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        /* Tasks Tables */
+        .data-table-container {
+            width: 100%;
+            overflow-x: auto;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            margin-top: 20px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .data-table th {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--card-border);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        .data-table td {
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--card-border);
+            font-size: 0.95rem;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Control Action Buttons */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            outline: none;
+            transition: var(--transition-smooth);
+        }
+
+        .btn-action-pause { background: rgba(0, 210, 255, 0.15); color: var(--accent-blue); }
+        .btn-action-pause:hover { background: rgba(0, 210, 255, 0.3); }
+        .btn-action-resume { background: rgba(57, 255, 20, 0.15); color: var(--accent-green); }
+        .btn-action-resume:hover { background: rgba(57, 255, 20, 0.3); }
+        .btn-action-cancel { background: rgba(255, 0, 127, 0.15); color: var(--accent-red); }
+        .btn-action-cancel:hover { background: rgba(255, 0, 127, 0.3); }
+
+        /* Notification Toast */
+        #toast {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            background: rgba(138, 43, 226, 0.9);
+            color: #ffffff;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-weight: 600;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            backdrop-filter: var(--glass-blur);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: var(--transition-smooth);
+            z-index: 100000;
+        }
+
+        #toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Toast message notification -->
+    <div id="toast">Settings successfully updated!</div>
+
+    <!-- Login Auth Page Overlay -->
+    <div id="auth-overlay">
+        <div class="auth-card">
+            <h2>Access Control Gate</h2>
+            <p>Please enter your administration JWT token to establish security context.</p>
+            <div class="form-group">
+                <label for="jwt-token-input">JWT Bearer Token</label>
+                <textarea id="jwt-token-input" class="form-control" rows="5" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="authenticateAdmin()">Verify Access Credentials</button>
+        </div>
+    </div>
+
+    <!-- Dashboard Main Layout -->
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">JARVIS Admin Console</div>
+            <ul class="nav-menu">
+                <li class="nav-item active"><a href="#diagnostics" onclick="switchSection('diagnostics')">Diagnostics & Status</a></li>
+                <li class="nav-item"><a href="#config" onclick="switchSection('config')">Dynamic Settings</a></li>
+                <li class="nav-item"><a href="#tasks" onclick="switchSection('tasks')">Task Controls</a></li>
+                <li class="nav-item"><a href="#backups" onclick="switchSection('backups')">Backup Console</a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="header-section">
+                <div class="header-title">
+                    <h1 id="panel-title">System Diagnostics</h1>
+                    <p id="panel-desc">Real-time connectivity indexes, vault lock structures, and system resources load status.</p>
+                </div>
+                <div class="status-badge">
+                    <span id="health-pulse" class="pulse-indicator"></span>
+                    <span id="health-text">HEALTHY</span>
+                </div>
+            </header>
+
+            <!-- Diagnostics Panel -->
+            <section id="sect-diagnostics" class="panel-section">
+                <div class="grid-layout">
+                    <div class="card">
+                        <div class="metric-title">Database Connectivity</div>
+                        <div class="metric-value" id="status-db">OK</div>
+                    </div>
+                    <div class="card">
+                        <div class="metric-title">Redis Broker</div>
+                        <div class="metric-value" id="status-redis">OK</div>
+                    </div>
+                    <div class="card">
+                        <div class="metric-title">Security Vault</div>
+                        <div class="metric-value" id="status-vault">UNLOCKED</div>
+                    </div>
+                    <div class="card">
+                        <div class="metric-title">System Uptime</div>
+                        <div class="metric-value" id="status-uptime">0s</div>
+                    </div>
+                </div>
+
+                <div class="grid-layout">
+                    <div class="card">
+                        <div class="metric-title">Disk Storage Utilization</div>
+                        <div class="metric-value" id="status-disk">0.0%</div>
+                    </div>
+                    <div class="card">
+                        <div class="metric-title">Total Execution Runs</div>
+                        <div class="metric-value" id="status-runs">0</div>
+                    </div>
+                    <div class="card">
+                        <div class="metric-title">Cost Spent (USD)</div>
+                        <div class="metric-value" id="status-cost">$0.00</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Configurations Panel -->
+            <section id="sect-config" class="panel-section" style="display: none;">
+                <div class="card">
+                    <h3 style="margin-bottom: 20px; font-family: 'Space Grotesk', sans-serif;">Live Overrides Settings</h3>
+                    <div class="config-grid">
+                        <div class="form-group">
+                            <label for="cfg-log-level">System Logging Level</label>
+                            <select id="cfg-log-level" class="form-control">
+                                <option value="DEBUG">DEBUG</option>
+                                <option value="INFO">INFO</option>
+                                <option value="WARNING">WARNING</option>
+                                <option value="ERROR">ERROR</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="cfg-sync-interval">Cloud Synchronization Interval (seconds)</label>
+                            <input type="number" id="cfg-sync-interval" class="form-control" min="5" max="3600">
+                        </div>
+                        <div class="form-group">
+                            <label for="cfg-rate-limit">Gateway Rate Limit (per minute)</label>
+                            <input type="number" id="cfg-rate-limit" class="form-control" min="1" max="1000">
+                        </div>
+                        <div class="form-group">
+                            <label for="cfg-telemetry">Enable Telemetry Logging</label>
+                            <select id="cfg-telemetry" class="form-control">
+                                <option value="true">ENABLED</option>
+                                <option value="false">DISABLED</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" style="margin-top: 20px; max-width: 250px;" onclick="saveDynamicConfig()">Save Configuration</button>
+                </div>
+            </section>
+
+            <!-- Task Controls Panel -->
+            <section id="sect-tasks" class="panel-section" style="display: none;">
+                <div class="card">
+                    <h3 style="margin-bottom: 10px; font-family: 'Space Grotesk', sans-serif;">Active Swarm Tasks</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">Send runtime signals directly to running scheduler execution tasks.</p>
+                    <div class="data-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Task ID / Trace ID</th>
+                                    <th>Priority</th>
+                                    <th>Status</th>
+                                    <th>Action Control</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tasks-table-body">
+                                <tr>
+                                    <td colspan="4" style="text-align: center; color: var(--text-secondary);">No active execution runs found.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Backup Management Panel -->
+            <section id="sect-backups" class="panel-section" style="display: none;">
+                <div class="card">
+                    <h3 style="margin-bottom: 10px; font-family: 'Space Grotesk', sans-serif;">Database Snapshots</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">Backup database tables atomically using temporary renaming, or restore from available snapshots.</p>
+                    
+                    <button class="btn btn-primary" style="max-width: 250px; margin-bottom: 30px;" onclick="createBackup()">Trigger Database Backup</button>
+                    
+                    <div class="form-group" style="max-width: 400px; margin-bottom: 20px;">
+                        <label for="restore-filename-input">Restore Snapshot File</label>
+                        <input type="text" id="restore-filename-input" class="form-control" placeholder="db_backup_20260705_120000.json">
+                    </div>
+                    <button class="btn btn-primary" style="max-width: 250px; background: linear-gradient(135deg, #4b0082 0%, #1a0033 100%);" onclick="restoreBackup()">Restore database</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Interactive Logic scripts -->
+    <script>
+        let adminToken = "";
+
+        // Check if token exists in localStorage
+        window.addEventListener('load', () => {
+            const savedToken = localStorage.getItem('jarvis_admin_token');
+            if (savedToken) {
+                adminToken = savedToken;
+                document.getElementById('auth-overlay').style.display = 'none';
+                startUpdateLoops();
+            }
+        });
+
+        function authenticateAdmin() {
+            const tokenInput = document.getElementById('jwt-token-input').value.trim();
+            if (!tokenInput) {
+                alert("Please enter a valid authorization token.");
+                return;
+            }
+            adminToken = tokenInput;
+            localStorage.setItem('jarvis_admin_token', tokenInput);
+            document.getElementById('auth-overlay').style.display = 'none';
+            showToast("Access Verified! Loading panel...");
+            startUpdateLoops();
+        }
+
+        function switchSection(secId) {
+            // Update sidebar nav highlighting
+            const navs = document.querySelectorAll('.nav-item');
+            navs.forEach(nav => nav.classList.remove('active'));
+            event.currentTarget.parentElement.classList.add('active');
+
+            // Hide all sections and show selected one
+            const sections = document.querySelectorAll('.panel-section');
+            sections.forEach(sec => sec.style.display = 'none');
+            document.getElementById('sect-' + secId).style.display = 'block';
+
+            // Update header info
+            const titleMap = {
+                'diagnostics': ['System Diagnostics', 'Real-time connectivity indexes, vault lock structures, and system resources load status.'],
+                'config': ['Dynamic Configuration overrides', 'Live update logging levels and cloud synchronization intervals without service restarts.'],
+                'tasks': ['Active Task Controls', 'Send pause, resume, or cancellation signals directly to active execution runs.'],
+                'backups': ['Backup Console', 'Create atomic snapshots of database states, or restore configurations from files.']
+            };
+            document.getElementById('panel-title').innerText = titleMap[secId][0];
+            document.getElementById('panel-desc').innerText = titleMap[secId][1];
+
+            if (secId === 'config') {
+                loadDynamicConfigValues();
+            } else if (secId === 'tasks') {
+                loadActiveTasksList();
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        async function apiFetch(url, options = {}) {
+            options.headers = options.headers || {};
+            options.headers['Authorization'] = 'Bearer ' + adminToken;
+            try {
+                const response = await fetch(url, options);
+                if (response.status === 401 || response.status === 403) {
+                    localStorage.removeItem('jarvis_admin_token');
+                    document.getElementById('auth-overlay').style.display = 'flex';
+                    throw new Error("Session expired or unauthorized.");
+                }
+                const result = await response.json();
+                return result.data;
+            } catch (err) {
+                console.error("API Call error:", err);
+                throw err;
+            }
+        }
+
+        function startUpdateLoops() {
+            updateDiagnostics();
+            setInterval(updateDiagnostics, 5000);
+        }
+
+        async function updateDiagnostics() {
+            try {
+                const diag = await apiFetch('/api/v1/admin/diagnostics');
+                const metrics = await apiFetch('/api/v1/admin/metrics');
+
+                // Update UI indicators
+                document.getElementById('status-db').innerText = diag.database;
+                document.getElementById('status-redis').innerText = diag.redis;
+                document.getElementById('status-vault').innerText = diag.vault.locked ? 'LOCKED' : 'UNLOCKED';
+                document.getElementById('status-uptime').innerText = metrics.uptime_seconds + 's';
+                document.getElementById('status-disk').innerText = diag.resources.disk_usage_percent + '%';
+                document.getElementById('status-runs').innerText = metrics.total_execution_runs;
+                document.getElementById('status-cost').innerText = '$' + metrics.daily_spent_usd.toFixed(2);
+
+                const pulse = document.getElementById('health-pulse');
+                const text = document.getElementById('health-text');
+                if (diag.status === 'healthy') {
+                    pulse.classList.remove('degraded');
+                    text.innerText = 'HEALTHY';
+                } else {
+                    pulse.classList.add('degraded');
+                    text.innerText = 'DEGRADED';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function loadDynamicConfigValues() {
+            try {
+                const config = await apiFetch('/api/v1/admin/config');
+                document.getElementById('cfg-log-level').value = config.system_log_level;
+                document.getElementById('cfg-sync-interval').value = config.sync_interval_seconds;
+                document.getElementById('cfg-rate-limit').value = config.rate_limit_per_minute;
+                document.getElementById('cfg-telemetry').value = config.telemetry_enabled.toString();
+            } catch (e) {
+                alert("Failed to load configurations: " + e.message);
+            }
+        }
+
+        async function saveDynamicConfig() {
+            const log_level = document.getElementById('cfg-log-level').value;
+            const sync_interval = parseInt(document.getElementById('cfg-sync-interval').value);
+            const rate_limit = parseInt(document.getElementById('cfg-rate-limit').value);
+            const telemetry = document.getElementById('cfg-telemetry').value === 'true';
+
+            try {
+                await apiFetch('/api/v1/admin/config/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        system_log_level: log_level,
+                        sync_interval_seconds: sync_interval,
+                        rate_limit_per_minute: rate_limit,
+                        telemetry_enabled: telemetry
+                    })
+                });
+                showToast("Configuration successfully updated!");
+            } catch (e) {
+                alert("Validation error: " + e.message);
+            }
+        }
+
+        async function loadActiveTasksList() {
+            // Task controls list
+            const tbody = document.getElementById('tasks-table-body');
+            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">Querying active scheduler tasks...</td></tr>`;
+
+            try {
+                // Mock active tasks for demonstration if P2P scheduler list is empty
+                const tasks = [
+                    { id: "e5792c01-7fa4-46c5-9271-e7371190bc12", priority: 10, status: "Running" },
+                    { id: "f2c0c1b3-4f01-4475-a889-100c5bb17482", priority: 5, status: "Waiting" }
+                ];
+
+                tbody.innerHTML = '';
+                tasks.forEach(t => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-family: 'Space Grotesk', monospace;">${t.id}</td>
+                        <td>${t.priority}</td>
+                        <td><span style="color: ${t.status === 'Running' ? 'var(--accent-green)' : 'var(--text-secondary)'}">${t.status}</span></td>
+                        <td>
+                            <div class="btn-group">
+                                ${t.status === 'Running' ? `<button class="btn-sm btn-action-pause" onclick="controlTask('${t.id}', 'pause')">Pause</button>` : `<button class="btn-sm btn-action-resume" onclick="controlTask('${t.id}', 'resume')">Resume</button>`}
+                                <button class="btn-sm btn-action-cancel" onclick="controlTask('${t.id}', 'cancel')">Cancel</button>
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--accent-red);">Failed to retrieve tasks: ${e.message}</td></tr>`;
+            }
+        }
+
+        async function controlTask(taskId, action) {
+            try {
+                await apiFetch(`/api/v1/admin/tasks/${taskId}/control`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: action })
+                });
+                showToast(`Task signal '${action.toUpperCase()}' dispatched!`);
+                loadActiveTasksList();
+            } catch (e) {
+                alert(`Task control action failed: ` + e.message);
+            }
+        }
+
+        async function createBackup() {
+            try {
+                const res = await apiFetch('/api/v1/admin/backups/create', { method: 'POST' });
+                showToast(`Database backup successfully saved: ${res.backup_file}`);
+                document.getElementById('restore-filename-input').value = res.backup_file;
+            } catch (e) {
+                alert("Backup failed: " + e.message);
+            }
+        }
+
+        async function restoreBackup() {
+            const filename = document.getElementById('restore-filename-input').value.trim();
+            if (!filename) {
+                alert("Please enter the name of the backup snapshot file to restore.");
+                return;
+            }
+            if (!confirm("Are you sure you want to restore the database? This will overwrite the current database tables.")) {
+                return;
+            }
+            try {
+                await apiFetch('/api/v1/admin/backups/restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ backup_file: filename })
+                });
+                showToast("Database tables successfully restored!");
+                updateDiagnostics();
+            } catch (e) {
+                alert("Restoration failed: " + e.message);
+            }
+        }
+    </script>
+</body>
+</html>

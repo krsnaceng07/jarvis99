@@ -1,0 +1,164 @@
+# FREEZE LEDGER
+
+*Rule: Build skill MUST check this before editing. Frozen files/interfaces CANNOT be touched.*
+
+**Workflow State:**
+- **Workflow v3.1: FROZEN** (Only Architect can modify. Build agents MUST NOT edit `.claude/skills/` or the `.ai/` architecture).
+
+**Approved Milestones:**
+- M1.0, M2.0, M3.0, M4.0, M5.5.1, M5.5.2, M5.5.3, M5.5.4, M5.5.5
+- Phase 20 (Memory Runtime), Phase 21 (Planner Runtime), Phase 22 (Orchestrator Runtime), Phase 23 (Tool Runtime)
+- Phase 24 (Autonomous Agent Runtime) — FROZEN 2026-07-04 at 957 tests
+- Phase 25 (Browser Runtime + Execution Journal) — FROZEN 2026-07-04 at 986 tests
+- Phase 26 (Multi-Agent Runtime + Persistent Session Recovery) — FROZEN 2026-07-04 at 1005 tests
+- Phase 27 (Observability, Cost Governance & Live Execution Streaming) — FROZEN 2026-07-04 at 1055 tests
+- Phase 28 (Security & Vault Hardening) — FROZEN 2026-07-04 at 1068 tests
+- Phase 29 (Advanced Vault Operations) — FROZEN 2026-07-04 at 1073 tests
+- Phase 30 (Cloud Sync & High Availability) — FROZEN 2026-07-04 at 1080 tests
+- Phase 31 (Platform Scale & Federation) — FROZEN 2026-07-05 at 1086 tests
+- Phase 32 (Platform Administration & Operations) — FROZEN 2026-07-05 at 1102 tests
+- Phase 33 (Enterprise Deployment, Operations & Production Readiness) — FROZEN 2026-07-05 at 1115 tests
+- Phase 34 (Autonomous Mission Engine & Long-Running Agents) — FROZEN 2026-07-05 at 1126 tests
+
+**Frozen Files:**
+- core/architecture/frozen_interfaces.py
+- .claude/skills/* (Workflow v3.1 logic)
+- AGENTS.md (Boot protocol frozen)
+- scripts/architecture_linter.py
+- scripts/dgv.py
+- scripts/trace_check.py
+- scripts/governance_check.py
+- scripts/quality_gate.py
+- core/reasoning/goal.py
+- core/reasoning/task.py
+- core/reasoning/dependency_graph.py
+- core/reasoning/scheduler.py
+- core/reasoning/planner_validator.py
+- core/reasoning/execution_plan.py
+- core/reasoning/dispatcher.py
+- core/reasoning/orchestrator.py (execute_wave_new, execute_task_step_new frozen)
+- core/reasoning/engine.py (execute_goal_new frozen)
+- core/reasoning/plan_version_manager.py
+- core/tools/python_runtime.py
+- core/tools/shell_runtime.py
+- core/tools/file_runtime.py
+- core/tools/api_runtime.py
+- core/tools/human_runtime.py
+- core/tools/llm_runtime.py              # Phase 24: LlmRuntime (LlmRequest/LlmResponse DTOs)
+- core/reasoning/reflection.py          # Phase 24: ReflectionEngine.analyze() + legacy reflect_and_correct
+- core/reasoning/decision_engine.py     # Phase 24: DecisionEngine.select_tool()
+- core/reasoning/agent_loop.py          # Phase 24: AgentLoop (sole top-level controller)
+- core/reasoning/task.py                # Phase 24: AgentTerminationReason enum added
+- tests/test_llm_runtime.py
+- tests/test_reflection.py
+- tests/test_decision_engine.py
+- tests/test_agent_loop.py
+- core/tools/browser_runtime.py          # Phase 25: BrowserRuntime
+- core/reasoning/journal.py              # Phase 25: ExecutionJournal
+- tests/test_browser_runtime.py
+- tests/test_execution_journal.py
+- tests/test_planner_*.py
+- tests/test_orchestrator_*.py
+- tests/test_python_runtime.py
+- tests/test_shell_runtime.py
+- tests/test_file_runtime.py
+- tests/test_api_runtime.py
+- tests/test_human_runtime.py
+- core/runtime/persistence_models.py     # Phase 26: ORM Database models
+- core/runtime/persistence_db.py         # Phase 26: DbSwarmPersistence
+- core/runtime/persistence_journal.py    # Phase 26: PersistentExecutionJournal
+- core/runtime/recovery_manager.py        # Phase 26: SwarmResumeManager
+- tests/test_swarm_persistence.py
+- core/observability/dto.py                  # Phase 27: Observability DTOs
+- core/observability/models.py               # Phase 27: Observability ORM models
+- core/observability/span_repository.py      # Phase 27: SpanRepository persistence adapter
+- core/observability/budget_repository.py    # Phase 27: BudgetRepository persistence adapter
+- core/observability/tracer.py               # Phase 27: ExecutionTracer core component
+- core/observability/cost_governor.py        # Phase 27: CostGovernor core component
+- core/observability/health_probe.py         # Phase 27: HealthProbe core component
+- core/observability/broadcaster_interface.py # Phase 27: TelemetryBroadcaster core abstract interface
+- core/observability/service.py              # Phase 27: ObservabilityService composition coordinator
+- api/broadcaster.py                         # Phase 27: Concrete TelemetryBroadcaster component
+- api/routes/observability.py                # Phase 27: Observability web routes
+- tests/test_observability_*.py
+- tests/test_execution_tracer.py
+- tests/test_cost_governor.py
+- tests/test_health_probe.py
+- tests/test_telemetry_broadcaster.py
+- core/security/vault.py                  # Phase 28: Symmetric credentials vault manager (AES-256-GCM)
+- tests/test_vault_hardening.py
+- api/routes/vault.py                     # Phase 29: Vault rotate/backup/restore API routes
+- tests/test_vault_operations.py
+- core/security/sync.py                   # Phase 30: Cloud sync manager (AES-256-GCM + clocks)
+- core/runtime/replication.py             # Phase 30: Active-passive SQLite database replication
+- api/routes/sync.py                      # Phase 30: Cloud sync gateway REST routes
+- tests/test_sync_ha.py
+- core/runtime/federation.py              # Phase 31: Peer node registry, HMAC validations, replay checks
+- api/routes/federation.py               # Phase 31: Federation gateway REST routes
+- tests/test_federation.py
+- core/runtime/admin.py                  # Phase 32: Admin manager coordinator
+- api/routes/admin.py                    # Phase 32: Admin dashboard and REST gateway routes
+- api/templates/dashboard.html           # Phase 32: Admin Console SPA HTML
+- tests/test_admin.py                    # Phase 32: Admin manager integration tests
+- core/runtime/deployment.py             # Phase 33: Enterprise deployment and health manager
+- api/routes/platform.py                 # Phase 33: Secure platform REST API endpoints
+- deploy/docker-compose.dev.yml          # Phase 33: Development Compose template
+- deploy/docker-compose.prod.yml         # Phase 33: Hardened production Compose template
+- deploy/nginx/nginx.conf                # Phase 33: Load balancer reverse proxy
+- tests/test_platform_health.py          # Phase 33: Platform health integration tests
+- tests/test_preflight.py                # Phase 33: Preflight validator tests
+- tests/test_deployment_profiles.py      # Phase 33: Compose file property validation
+- tests/test_shutdown.py                 # Phase 33: Graceful shutdown draining verification
+- tests/test_disaster_recovery.py        # Phase 33: Disaster recovery verification tests
+- core/runtime/mission_models.py         # Phase 34: Mission and timeline ORM models
+- core/runtime/mission.py                # Phase 34: MissionManager state machine and loop execution coordinator
+- api/routes/missions.py                 # Phase 34: Missions REST API gateway router
+- tests/test_mission_manager.py          # Phase 34: MissionManager unit/integration tests
+- tests/test_mission_recovery.py         # Phase 34: MissionManager startup recovery tests
+- tests/test_mission_api.py              # Phase 34: Missions REST API tests
+- tests/test_checkpoint.py               # Phase 34: Checkpoint and rollback tests
+- tests/test_approval_gate.py             # Phase 34: Budget and safety gates tests
+- tests/test_multi_agent_mission.py      # Phase 34: Multi-agent coordination tests
+- tests/test_mission_coverage_boost.py   # Phase 34: Extra coverage tests
+
+
+**Frozen Interfaces:**
+- DependencyGraphValidator Base Class
+- ExecutionOrchestrator Contract
+- Quality Gate Pipeline Orchestration Contract
+- Planner Subsystem Interface (Goal, Task, DAG, Scheduler, Validator)
+- Tool Dispatcher Interface (BaseExecutor, ToolDispatcher.dispatch)
+- Orchestrator Pipeline (execute_wave_new, execute_task_step_new)
+- Engine Pipeline (execute_goal_new)
+- Tool execution runtimes (Python, Shell, File, API, Human) contract compliance
+- Agent Loop Interface (AgentLoop.run, AgentLoopResult, AgentTerminationReason)
+- LlmRuntime Interface (LlmRuntime.generate, LlmRequest, LlmResponse)
+- ReflectionEngine Interface (analyze() — Phase 24 path; reflect_and_correct() — legacy compat)
+- DecisionEngine Interface (select_tool())
+- ExecutionJournal Interface (record_iteration, export, export_text)
+- BrowserExecutor Interface (execute)
+- DbSwarmPersistence Interface (save_task, save_agent, save_snapshot, load_snapshot, save_history)
+- SwarmResumeManager Interface (recover_all)
+- SpanRepository Interface                   # Phase 27: Span persistence
+- BudgetRepository Interface                 # Phase 27: Daily+monthly budget persistence
+- ExecutionTracer Interface                  # Phase 27: Non-blocking trace span tracking
+- CostGovernor Interface                     # Phase 27: Non-blocking 4-tier LLM cost checks
+- HealthProbe Interface                      # Phase 27: Monotonic component heartbeats
+- BaseTelemetryBroadcaster Interface          # Phase 27: Bounded lossy real-time broadcasts
+- ObservabilityService Interface             # Phase 27: Subscription coordinator
+- VaultManager Interface                      # Phase 28: Cryptographically hardened symmetric credentials vault manager
+- VaultManager Operations                  # Phase 29: Key rotation, backup/restore, expiration checking
+- Vault Admin Routing                      # Phase 29: Admin rotate, backup, and restore REST endpoints
+- CloudStorageProvider Interface            # Phase 30: Cloud sync transport abstraction
+- SyncManager Interface                     # Phase 30: Encrypted sync engine with vector clocks
+- ReplicationManager Interface              # Phase 30: SQLite replication coordinator and failover promotion
+- Sync REST Gateway Routing                 # Phase 30: REST sync push/pull gateway endpoints
+- FederationManager Interface             # Phase 31: Cryptographically signed node registrations, message routing, and heartbeats
+- Federation REST Routing                 # Phase 31: REST federation message relay and peer discovery admin endpoints
+- AdminManager Interface                 # Phase 32: Diagnostics, metrics, dynamic configs, backups, and restores
+- Admin REST Gateway Routing             # Phase 32: Administration API routes and secure SPA dashboard gateway
+- DeploymentHealthManager Interface      # Phase 33: Liveness, readiness, preflight checks, and recovery verification
+- Platform REST Gateway Routing          # Phase 33: Operations and readiness endpoints
+- MissionManager Interface               # Phase 34: State machine transitions, checkpoints, rollbacks, and recovery loops
+- Missions REST Gateway Routing          # Phase 34: REST API gateway endpoints for creating, listing, and controlling missions
+

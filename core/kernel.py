@@ -7,7 +7,7 @@ event bus initialization, and core lifecycle sequences.
 import logging
 import sys
 from types import ModuleType
-from typing import Optional
+from typing import Any, Optional
 
 from core.container import DependencyContainer
 from core.exceptions import JarvisSystemError
@@ -135,10 +135,27 @@ class Kernel(LifecycleInterface):
             await event_bus.start()
             self.container.register_singleton(EventBusInterface, event_bus)
 
+            # Link event bus to VaultManager
+            try:
+                from core.security.vault import VaultManager
+
+                vault = self.container.resolve(VaultManager)
+                vault.event_bus = event_bus
+            except Exception:
+                pass
+
             # Load and Register Settings Singleton
+            import os
+
             from core.config import Settings
 
-            settings = Settings.load_settings()
+            path = (
+                self._config_path
+                if (self._config_path and os.path.exists(self._config_path))
+                else None
+            )
+            settings = Settings.load_settings(path)
+            self._resolve_vault_secrets(settings)
             self.container.register_singleton(Settings, settings)
 
             # Register Orchestration & Tool components
@@ -313,6 +330,13 @@ class Kernel(LifecycleInterface):
                     security_models as _security_models,  # noqa: F401
                 )
                 from core.memory.models import Base
+                from core.observability import (
+                    models as _observability_models,  # noqa: F401
+                )
+                from core.runtime import (
+                    persistence_models as _persistence_models,  # noqa: F401
+                    mission_models as _mission_models,  # noqa: F401
+                )
                 from core.tools import (
                     execution_models as _execution_models,  # noqa: F401
                 )
@@ -335,6 +359,103 @@ class Kernel(LifecycleInterface):
             self.container.register_singleton(ResumeManager, resume_manager)
 
             self.lifecycle_manager.add_service(persistence_service)
+
+            # Phase 26 — Multi-Agent Runtime & Swarm Orchestration
+            from core.reasoning.decision_engine import DecisionEngine
+            from core.reasoning.dispatcher import ToolDispatcher
+            from core.reasoning.reflection import ReflectionEngine
+            from core.runtime.container_driver import MockAdapter
+            from core.runtime.lock import MemoryLock
+            from core.runtime.message_bus import SwarmMessageBus
+            from core.runtime.orchestrator import SwarmOrchestrator
+            from core.runtime.persistence_db import DbSwarmPersistence
+            from core.runtime.queue import SwarmTaskQueue
+            from core.runtime.recovery_manager import SwarmResumeManager
+            from core.runtime.registry import AgentRegistry
+            from core.runtime.routes import set_orchestrator
+            from core.runtime.scheduler import CapabilityNegotiator
+            from core.runtime.subagent import SubagentManager
+
+            swarm_queue = SwarmTaskQueue()
+            swarm_negotiator = CapabilityNegotiator()
+            swarm_message_bus = SwarmMessageBus(event_bus)
+            swarm_persistence = DbSwarmPersistence()
+            swarm_lock_manager = MemoryLock()
+            swarm_registry = AgentRegistry()
+            swarm_subagent_manager = SubagentManager(driver=MockAdapter())
+
+            swarm_dispatcher = ToolDispatcher()
+            swarm_reflection = ReflectionEngine(settings)
+            swarm_decision = DecisionEngine()
+
+            swarm_orchestrator = SwarmOrchestrator(
+                manager=swarm_subagent_manager,
+                queue=swarm_queue,
+                negotiator=swarm_negotiator,
+                message_bus=swarm_message_bus,
+                persistence=swarm_persistence,
+                lock_manager=swarm_lock_manager,
+                registry=swarm_registry,
+                event_bus=event_bus,
+                dispatcher=swarm_dispatcher,
+                reflection=swarm_reflection,
+                decision=swarm_decision,
+            )
+
+            # Register globally for API routes dependencies
+            set_orchestrator(swarm_orchestrator)
+
+            swarm_resume_manager = SwarmResumeManager(
+                orchestrator=swarm_orchestrator,
+                event_bus=event_bus,
+            )
+
+            self.container.register_singleton(SwarmOrchestrator, swarm_orchestrator)
+            self.container.register_singleton(SwarmResumeManager, swarm_resume_manager)
+
+            self.lifecycle_manager.add_service(swarm_orchestrator)
+            self.lifecycle_manager.add_service(swarm_resume_manager)
+
+            # Phase 27 — Observability, Cost Governance & Live Execution Streaming
+            from core.observability.broadcaster_interface import (
+                BaseTelemetryBroadcaster,
+            )
+            from core.observability.budget_repository import BudgetRepository
+            from core.observability.cost_governor import CostGovernor
+            from core.observability.health_probe import HealthProbe
+            from core.observability.service import ObservabilityService
+            from core.observability.span_repository import SpanRepository
+
+            obs_span_repo = SpanRepository()
+            obs_budget_repo = BudgetRepository()
+            obs_cost_governor = CostGovernor(
+                budget_repository=obs_budget_repo,
+                daily_limit_usd=getattr(settings, "JARVIS_DAILY_BUDGET_USD", 10.0),
+            )
+            obs_health_probe = HealthProbe()
+            try:
+                obs_broadcaster = self.container.resolve(BaseTelemetryBroadcaster)
+            except Exception:
+                from core.observability.dto import TelemetryEnvelope
+
+                class NoOpTelemetryBroadcaster(BaseTelemetryBroadcaster):
+                    async def broadcast(self, envelope: TelemetryEnvelope) -> None:
+                        pass
+
+                obs_broadcaster = NoOpTelemetryBroadcaster()
+
+            observability_service = ObservabilityService(
+                event_bus=event_bus,
+                span_repo=obs_span_repo,
+                cost_gov=obs_cost_governor,
+                health_probe=obs_health_probe,
+                broadcaster=obs_broadcaster,
+            )
+
+            self.container.register_singleton(
+                ObservabilityService, observability_service
+            )
+            self.lifecycle_manager.add_service(observability_service)
 
             # Phase 17 — Security services
             from core.security.api_key_service import ApiKeyService
@@ -379,6 +500,103 @@ class Kernel(LifecycleInterface):
             self.container.register_singleton(RbacService, rbac_service)
             self.container.register_singleton(AuthenticationService, auth_service)
             self.container.register_singleton(SecuritySeedService, seed_service)
+
+            # Phase 30 — Cloud Sync & HA
+            try:
+                from core.security.sync import LocalFolderStorageProvider, SyncManager
+                from core.security.vault import VaultManager
+
+                vault_mgr = self.container.resolve(VaultManager)
+                provider = LocalFolderStorageProvider(folder_path="secrets/sync")
+                sync_manager = SyncManager(
+                    vault_manager=vault_mgr,
+                    storage_provider=provider,
+                    settings=settings,
+                    event_bus=event_bus,
+                )
+                self.container.register_singleton(SyncManager, sync_manager)
+            except Exception as e:
+                logger.warning(
+                    "SyncManager registration skipped during boot: %s", str(e)
+                )
+
+            # Phase 31 — Platform Scale & Federation
+            try:
+                from core.runtime.federation import FederationManager
+                from core.security.vault import VaultManager
+
+                vault_mgr = self.container.resolve(VaultManager)
+                federation_manager = FederationManager(
+                    settings=settings,
+                    vault_manager=vault_mgr,
+                    event_bus=event_bus,
+                )
+                self.container.register_singleton(FederationManager, federation_manager)
+                self.lifecycle_manager.add_service(federation_manager)
+            except Exception as e:
+                logger.warning(
+                    "FederationManager registration skipped during boot: %s", str(e)
+                )
+
+            # Phase 32 — Platform Administration & Operations
+            try:
+                from core.runtime.admin import AdminManager
+                from core.security.vault import VaultManager
+                from core.runtime.orchestrator import SwarmOrchestrator
+
+                vault_mgr = self.container.resolve(VaultManager)
+                orchestrator = self.container.resolve(SwarmOrchestrator)
+
+                admin_manager = AdminManager(
+                    settings=settings,
+                    db_manager=db_manager,
+                    event_bus=event_bus,
+                    vault_manager=vault_mgr,
+                    orchestrator=orchestrator,
+                )
+                self.container.register_singleton(AdminManager, admin_manager)
+                self.lifecycle_manager.add_service(admin_manager)
+            except Exception as e:
+                logger.warning(
+                    "AdminManager registration skipped during boot: %s", str(e)
+                )
+
+            # Phase 33 — Platform Enterprise Deployment & Operations
+            try:
+                from core.runtime.deployment import DeploymentHealthManager
+
+                health_mgr = DeploymentHealthManager(
+                    settings=settings,
+                    db_manager=db_manager,
+                    event_bus=event_bus,
+                    vault_manager=vault_mgr,
+                    orchestrator=orchestrator,
+                    admin_manager=admin_manager,
+                )
+                self.container.register_singleton(DeploymentHealthManager, health_mgr)
+                self.lifecycle_manager.add_service(health_mgr)
+            except Exception as e:
+                logger.warning(
+                    "DeploymentHealthManager registration skipped during boot: %s", str(e)
+                )
+
+            # Phase 34 — Platform Autonomous Mission Engine & Long-Running Agents
+            try:
+                from core.runtime.mission import MissionManager
+
+                mission_mgr = MissionManager(
+                    settings=settings,
+                    db_manager=db_manager,
+                    event_bus=event_bus,
+                    vault_manager=vault_mgr,
+                    orchestrator=orchestrator,
+                )
+                self.container.register_singleton(MissionManager, mission_mgr)
+                self.lifecycle_manager.add_service(mission_mgr)
+            except Exception as e:
+                logger.warning(
+                    "MissionManager registration skipped during boot: %s", str(e)
+                )
 
             # 3. Add kernel to lifecycle list (or configure dependency tree)
             self.lifecycle_manager.add_service(self)
@@ -430,9 +648,64 @@ class Kernel(LifecycleInterface):
         Returns:
             True if security vault loaded successfully.
         """
-        # Internal API hook
         logger.info("Loading system credentials vaults...")
-        return True
+        try:
+            # Load settings temporarily to find vault paths
+            import os
+
+            from core.config import Settings
+            from core.security.vault import VaultManager
+
+            path = (
+                self._config_path
+                if (self._config_path and os.path.exists(self._config_path))
+                else None
+            )
+            settings = Settings.load_settings(path)
+
+            key_path = settings.vault.encryption_key_path
+            secrets_path = settings.vault.secrets_path
+
+            vault = VaultManager(key_path=key_path, secrets_path=secrets_path)
+            await vault.initialize()
+
+            self.container.register_singleton(VaultManager, vault)
+            return True
+        except Exception as e:
+            logger.error("Failed to initialize system security vault: %s", str(e))
+            return False
+
+    def _resolve_vault_secrets(self, settings: Any) -> None:
+        """Scan known settings sub-models and resolve any vault:// placeholders."""
+        from core.security.vault import VaultManager
+
+        try:
+            vault = self.container.resolve(VaultManager)
+        except Exception:
+            logger.warning(
+                "VaultManager not registered. Skipping config vault secret resolution."
+            )
+            return
+
+        # Resolve only in known configuration categories (Architect Recommendation #6)
+        categories = ["database", "redis", "embedding"]
+        for category_name in categories:
+            category = getattr(settings, category_name, None)
+            if not category:
+                continue
+            for field in category.__class__.model_fields:
+                val = getattr(category, field)
+                if isinstance(val, str) and val.startswith("vault://"):
+                    secret_name = val[8:]
+                    try:
+                        resolved = vault.get_secret(secret_name)
+                        setattr(category, field, resolved)
+                    except Exception as err:
+                        logger.error(
+                            "Failed to resolve secret '%s' from vault: %s",
+                            secret_name,
+                            str(err),
+                        )
 
     async def _initialize_event_bus(self) -> bool:
         """Establish connection to the Redis Streams event bus.

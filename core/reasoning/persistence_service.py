@@ -62,6 +62,9 @@ class PersistenceService(LifecycleInterface):
             "workflow.step.completed", self.handle_step_completed
         )
         await self.event_bus.subscribe("workflow.step.failed", self.handle_step_failed)
+        await self.event_bus.subscribe(
+            "journal.iteration.recorded", self.handle_journal_recorded
+        )
 
     async def handle_engine_transition(self, msg: InterAgentMessage) -> None:
         """Process agent execution transition events."""
@@ -196,6 +199,18 @@ class PersistenceService(LifecycleInterface):
                     error=error,
                     session=session,
                 )
+
+    async def handle_journal_recorded(self, msg: InterAgentMessage) -> None:
+        """Process incremental journal records."""
+        session_id = msg.correlation_id
+        body = msg.body or {}
+
+        async with db_manager.session() as session:
+            async with session.begin():
+                from core.runtime.persistence_db import DbSwarmPersistence
+
+                persistence = DbSwarmPersistence()
+                await persistence.save_history(session_id, [body], session)
 
     async def start(self) -> None:
         """Start the PersistenceService."""

@@ -202,9 +202,13 @@ class LocalSubprocessSandbox(ISandbox):
                 except ProcessLookupError:
                     pass
                 stdout_bytes, stderr_bytes = await proc.communicate()
+                await proc.wait()
                 exit_code = (
                     -signal_timeout_code() if hasattr(proc, "returncode") else -1
                 )
+            else:
+                if proc.returncode is None:
+                    await proc.wait()
 
             duration = time.time() - start_time
             truncated = False
@@ -216,6 +220,9 @@ class LocalSubprocessSandbox(ISandbox):
             if len(stderr_bytes) > self.output_limit_bytes:
                 stderr_bytes = stderr_bytes[: self.output_limit_bytes]
                 truncated = True
+
+            # Brief sleep to allow asyncio loop to recycle subprocess pipe transports cleanly on Windows
+            await asyncio.sleep(0.05)
 
             return {
                 "stdout": stdout_bytes.decode("utf-8", errors="replace"),

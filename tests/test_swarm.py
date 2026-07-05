@@ -284,6 +284,7 @@ async def test_swarm_orchestrator_integration() -> None:
 
 def test_swarm_api_routes() -> None:
     """Verify REST router endpoints /spawn and /terminate."""
+    set_orchestrator(None)
     app = FastAPI()
     app.include_router(swarm_router)
     client = TestClient(app)

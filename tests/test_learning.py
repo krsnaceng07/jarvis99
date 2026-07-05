@@ -5,7 +5,8 @@ stale node invalidations, refresh pipelines, and REST API route handlers.
 """
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
@@ -328,35 +329,43 @@ def test_learning_routes_offline_and_errors() -> None:
     """Verify route error returns for query and status when offline, and exception handling."""
     app = FastAPI()
     app.include_router(learning_router)
-    client = TestClient(app)
 
-    # Offline check
-    set_learning_service(None)
-    assert client.get("/api/v1/learning/query?q=test").status_code == 503
-    assert client.get("/api/v1/learning/status").status_code == 503
+    with TestClient(app) as client:
+        # Offline check
+        set_learning_service(None)
+        assert client.get("/api/v1/learning/query?q=test").status_code == 503
+        assert client.get("/api/v1/learning/status").status_code == 503
 
-    # Exception mapping
-    mock_service = AsyncMock()
-    mock_service.ingest_url.side_effect = Exception("General Ingest Failure")
-    mock_service.memory_service.retrieve.side_effect = Exception(
-        "General Query Failure"
-    )
-    mock_service.check_stale_nodes.side_effect = Exception("General Status Failure")
-    set_learning_service(mock_service)
+        # Exception mapping
+        mock_service = MagicMock()
 
-    # Ingest 400 response
-    assert (
-        client.post(
-            "/api/v1/learning/ingest", json={"url": "https://python.org"}
-        ).status_code
-        == 400
-    )
+        async def raise_ingest(url: str, chunk_id: UUID | None = None) -> UUID:
+            raise Exception("General Ingest Failure")
 
-    # Query 500 response
-    assert client.get("/api/v1/learning/query?q=test").status_code == 500
+        async def raise_query(query: object) -> list[object]:
+            raise Exception("General Query Failure")
 
-    # Status 500 response
-    assert client.get("/api/v1/learning/status").status_code == 500
+        async def raise_status() -> list[object]:
+            raise Exception("General Status Failure")
+
+        mock_service.ingest_url = raise_ingest
+        mock_service.memory_service = SimpleNamespace(retrieve=raise_query)
+        mock_service.check_stale_nodes = raise_status
+        set_learning_service(mock_service)
+
+        # Ingest 400 response
+        assert (
+            client.post(
+                "/api/v1/learning/ingest", json={"url": "https://python.org"}
+            ).status_code
+            == 400
+        )
+
+        # Query 500 response
+        assert client.get("/api/v1/learning/query?q=test").status_code == 500
+
+        # Status 500 response
+        assert client.get("/api/v1/learning/status").status_code == 500
 
 
 @pytest.mark.asyncio

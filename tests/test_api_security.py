@@ -436,11 +436,10 @@ def test_jwt_service_tampered_signature_rejected() -> None:
         jti=str(uuid4()),
     )
 
-    # Flip the last character of the signature segment.
+    # Flip the first character of the signature segment (avoiding padding bits).
     parts = token.split(".")
-    tampered = ".".join(
-        [parts[0], parts[1], parts[2][:-1] + ("A" if parts[2][-1] != "A" else "B")]
-    )
+    tampered_sig = ("A" if parts[2][0] != "A" else "B") + parts[2][1:]
+    tampered = ".".join([parts[0], parts[1], tampered_sig])
 
     with pytest.raises(pyjwt.PyJWTError):
         service.verify_token(tampered)

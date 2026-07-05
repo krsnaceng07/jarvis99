@@ -7,7 +7,7 @@ import asyncio
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
 from core.runtime.dto import SwarmTask
@@ -44,15 +44,21 @@ class TerminateRequest(BaseModel):
     task_id: UUID
 
 
-@swarm_router.post("/spawn", response_model=SpawnResponse)
-async def spawn_task(task: SwarmTask) -> Dict[str, Any]:
-    """Trigger goal-decomposition and execute a task inside a subagent container."""
+def _require_orchestrator() -> SwarmOrchestrator:
+    """Retrieve global orchestrator or raise 503."""
     if not _global_orchestrator:
         raise HTTPException(
             status_code=503, detail="Swarm Orchestrator service unavailable."
         )
+    return _global_orchestrator
 
-    success = await _global_orchestrator.spawn_task(task)
+
+@swarm_router.post("/spawn", response_model=SpawnResponse)
+async def spawn_task(task: SwarmTask) -> Dict[str, Any]:
+    """Trigger goal-decomposition and execute a task inside a subagent container."""
+    orch = _require_orchestrator()
+
+    success = await orch.spawn_task(task)
     if not success:
         raise HTTPException(
             status_code=409,
@@ -68,12 +74,9 @@ async def spawn_task(task: SwarmTask) -> Dict[str, Any]:
 @swarm_router.post("/terminate", response_model=SpawnResponse)
 async def terminate_task(request: TerminateRequest) -> Dict[str, Any]:
     """Force cancel and abort execution of a task."""
-    if not _global_orchestrator:
-        raise HTTPException(
-            status_code=503, detail="Swarm Orchestrator service unavailable."
-        )
+    orch = _require_orchestrator()
 
-    success = await _global_orchestrator.cancel_task(request.task_id)
+    success = await orch.cancel_task(request.task_id)
     if not success:
         raise HTTPException(status_code=404, detail="Task ID context not found.")
 
@@ -81,6 +84,51 @@ async def terminate_task(request: TerminateRequest) -> Dict[str, Any]:
         "status": "SUCCESS",
         "message": f"Task {request.task_id} successfully cancelled.",
     }
+
+
+@swarm_router.get("/tasks")
+async def list_tasks(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> Dict[str, Any]:
+    """Query paginated swarm task records from persistence."""
+    _require_orchestrator()
+
+    from core.runtime.persistence_db import DbSwarmPersistence
+
+    persistence = DbSwarmPersistence()
+    tasks = await persistence.list_tasks(limit=limit, offset=offset)
+    return {
+        "tasks": [t.model_dump(mode="json") for t in tasks],
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@swarm_router.get("/agents")
+async def list_agents(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> Dict[str, Any]:
+    """Query paginated swarm agent registration records from persistence."""
+    _require_orchestrator()
+
+    from core.runtime.persistence_db import DbSwarmPersistence
+
+    persistence = DbSwarmPersistence()
+    agents = await persistence.list_agents(limit=limit, offset=offset)
+    return {
+        "agents": agents,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@swarm_router.get("/status")
+async def get_status() -> Dict[str, Any]:
+    """Fetch live swarm orchestrator status snapshot."""
+    orch = _require_orchestrator()
+    return await orch.get_status()
 
 
 @ws_router.websocket("/swarm")

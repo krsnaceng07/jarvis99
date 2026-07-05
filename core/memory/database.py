@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import StaticPool
 
 from core.config import Settings
 from core.exceptions import JarvisError, JarvisMemoryError
@@ -49,11 +50,13 @@ class DatabaseSessionManager:
         if is_sqlite:
             # SQLite requires check_same_thread=False for async multithreaded context
             connect_args["check_same_thread"] = False
-            self._engine = create_async_engine(
-                connection_url,
-                echo=settings.system.debug,
-                connect_args=connect_args,
-            )
+            engine_kwargs: Dict[str, Any] = {
+                "echo": settings.system.debug,
+                "connect_args": connect_args,
+            }
+            if ":memory:" in connection_url:
+                engine_kwargs["poolclass"] = StaticPool
+            self._engine = create_async_engine(connection_url, **engine_kwargs)
         else:
             self._engine = create_async_engine(
                 connection_url,
@@ -73,9 +76,11 @@ class DatabaseSessionManager:
         """Dispose of connection resources and close the engine."""
         if self._engine is None:
             return
-        await self._engine.dispose()
-        self._engine = None
-        self._sessionmaker = None
+        try:
+            await self._engine.dispose()
+        finally:
+            self._engine = None
+            self._sessionmaker = None
 
     @contextlib.asynccontextmanager
     async def session(self) -> AsyncIterator[AsyncSession]:

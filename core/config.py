@@ -42,6 +42,7 @@ class VaultConfig(BaseModel):
     """Configuration mapping for secure vault paths."""
 
     encryption_key_path: str = Field(default="secrets/master.key")
+    secrets_path: str = Field(default="secrets/vault.enc")
 
 
 class EmbeddingConfig(BaseModel):
@@ -111,6 +112,14 @@ class MemoryConfig(BaseModel):
     retention: MemoryRetentionConfig = Field(default_factory=MemoryRetentionConfig)
 
 
+class FederationConfig(BaseModel):
+    """Configuration mapping for peer-to-peer federation settings."""
+
+    enabled: bool = Field(default=False)
+    node_id: str = Field(default="node_default")
+    peers_path: str = Field(default="secrets/peers.json")
+
+
 class Settings(BaseSettings):
     """Unified Settings container validating configurations and environment overrides."""
 
@@ -120,6 +129,7 @@ class Settings(BaseSettings):
     vault: VaultConfig = Field(default_factory=VaultConfig)
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
+    federation: FederationConfig = Field(default_factory=FederationConfig)
 
     model_config = SettingsConfigDict(
         env_prefix="JARVIS_",

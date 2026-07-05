@@ -998,13 +998,14 @@ async def test_telemetry_hub_edge_cases() -> None:
 
 @pytest.mark.asyncio
 async def test_app_lifespan() -> None:
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import AsyncMock, MagicMock, patch
 
     from fastapi import FastAPI
 
     from api.main import lifespan
 
     mock_kernel = AsyncMock()
+    mock_kernel.container = MagicMock()
     mock_kernel.boot = AsyncMock(return_value=True)
     mock_kernel.lifecycle_manager.stop_all = AsyncMock()
     mock_kernel.lifecycle_manager.shutdown_all = AsyncMock()

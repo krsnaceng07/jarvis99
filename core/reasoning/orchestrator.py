@@ -6,12 +6,15 @@ observability metrics logging, and retry-safe idempotency verification.
 
 import asyncio
 import time
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 from uuid import UUID, uuid4
 
 from core.config import Settings
 from core.interfaces import EventBusInterface, InterAgentMessage
+from core.reasoning.dispatcher import ToolDispatcher
+from core.reasoning.execution_plan import ExecutionPlan
 from core.reasoning.planner import ReasoningSession
+from core.reasoning.task import Task, TaskStatus
 from core.tools.base import SkillManifest
 from core.tools.dto import (
     AggregatedWaveResult,
@@ -430,3 +433,137 @@ class ExecutionOrchestrator:
             },
         )
         await self.event_bus.publish(topic, msg)
+
+    async def execute_wave_new(
+        self,
+        wave: List[UUID],
+        plan: ExecutionPlan,
+        session: ReasoningSession,
+        dispatcher: ToolDispatcher,
+        context: Dict[str, Any],
+    ) -> AggregatedWaveResult:
+        """Execute a wave of parallel task IDs utilizing the ToolDispatcher.
+
+        Args:
+            wave: List of Task UUIDs in the current wave.
+            plan: The complete compiled ExecutionPlan.
+            session: Active ReasoningSession.
+            dispatcher: ToolDispatcher instance.
+            context: Shared context (e.g. MemoryService).
+        """
+        tasks_to_run = [t for t in plan.tasks if t.id in wave]
+
+        # Execute all tasks in the wave concurrently
+        futures = [
+            self.execute_task_step_new(task, session, dispatcher, context)
+            for task in tasks_to_run
+        ]
+        results = await asyncio.gather(*futures)
+
+        completed_ids = []
+        failed_ids = []
+        stdout_parts = []
+        stderr_parts = []
+        duration_sum = 0.0
+        combined_artifacts = {}
+
+        for res in results:
+            if res.status == "SUCCESS":
+                completed_ids.append(res.task_id)
+            else:
+                failed_ids.append(res.task_id)
+            if res.stdout:
+                stdout_parts.append(res.stdout)
+            if res.stderr:
+                stderr_parts.append(res.stderr)
+            duration_sum += res.duration
+            if res.artifacts:
+                combined_artifacts.update(res.artifacts)
+
+        wave_status = "SUCCESS"
+        if failed_ids:
+            wave_status = "PARTIAL_FAILURE" if completed_ids else "FAILURE"
+
+        return AggregatedWaveResult(
+            wave_id=uuid4(),
+            status=wave_status,
+            tasks_completed=completed_ids,
+            tasks_failed=failed_ids,
+            combined_stdout="\n".join(stdout_parts),
+            combined_stderr="\n".join(stderr_parts),
+            total_duration=duration_sum,
+            artifacts=combined_artifacts,
+        )
+
+    async def execute_task_step_new(
+        self,
+        task: Task,
+        session: ReasoningSession,
+        dispatcher: ToolDispatcher,
+        context: Dict[str, Any],
+    ) -> ToolExecutionResult:
+        """Execute a single task step using the dispatcher with retry logic.
+
+        Args:
+            task: Task model.
+            session: ReasoningSession tracker.
+            dispatcher: ToolDispatcher instance.
+            context: Shared context.
+        """
+        # Publish start event
+        start_res = ToolExecutionResult(task_id=task.id, status="RUNNING")
+        start_res.artifacts["tool_name"] = task.task_type.value
+        await self.publish_task_event("tool.spawn.started", start_res)
+
+        max_attempts = 3
+        attempt = 0
+        last_res = ToolExecutionResult(task_id=task.id, status="PENDING")
+
+        while attempt < max_attempts:
+            attempt += 1
+            task.status = TaskStatus.RUNNING
+
+            start_time = time.perf_counter()
+            try:
+                # Dispatch the task to the selected executor
+                last_res = await dispatcher.dispatch(task, context)
+            except Exception as e:
+                last_res = ToolExecutionResult(
+                    task_id=task.id,
+                    status="ERROR",
+                    error=str(e),
+                )
+            last_res.duration = time.perf_counter() - start_time
+
+            if last_res.status == "SUCCESS":
+                task.status = TaskStatus.SUCCESS
+                break
+            else:
+                task.status = TaskStatus.FAILED
+                if attempt < max_attempts:
+                    await asyncio.sleep(0.01)
+
+        # Log usage to session
+        session.total_tokens += task.estimated_tokens
+        session.total_cost += task.estimated_cost
+
+        # Record tool trace log entry
+        trace_entry = {
+            "tool_name": task.task_type.value,
+            "arguments": task.payload,
+            "status": "success" if last_res.status == "SUCCESS" else "failure",
+            "exit_code": last_res.exit_code,
+            "duration_s": last_res.duration,
+            "error": last_res.error,
+        }
+        session.tool_calls.append(trace_entry)
+        session.latency_ms += last_res.duration * 1000.0
+
+        # Publish final status event
+        if last_res.status == "SUCCESS":
+            await self.publish_task_event("tool.completed", last_res)
+        else:
+            await self.publish_task_event("tool.failed", last_res)
+
+        return last_res
+

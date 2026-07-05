@@ -32,3 +32,31 @@ jobs:
       - name: Run Architecture Linter
         run: |
           uv run python -m scripts.architecture_linter --config .architecture-linter.toml
+
+      - name: Run Dependency Graph Validator
+        run: |
+          uv run python -m scripts.dgv
+
+      - name: Run Trace Check
+        run: |
+          uv run python -m scripts.trace_check
+
+      - name: Run Governance Check
+        run: |
+          uv run python -m scripts.governance_check
+
+      - name: Run Ruff Format Check
+        run: |
+          uv run ruff format --check scripts tests
+
+      - name: Run Ruff Lint Check
+        run: |
+          uv run ruff check scripts tests
+
+      - name: Run MyPy Check
+        run: |
+          uv run mypy --strict scripts/architecture_linter.py scripts/dgv.py scripts/trace_check.py scripts/governance_check.py scripts/quality_gate.py tests/test_architecture_linter.py tests/test_dgv.py tests/test_trace_check.py tests/test_governance_check.py tests/test_quality_gate.py
+
+      - name: Run Test Suite with Coverage
+        run: |
+          uv run pytest --cov=core --cov=api --cov-report=term-missing
