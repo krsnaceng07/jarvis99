@@ -145,3 +145,9 @@ config.yaml
 secrets/
 .vault_key
 *.key
+
+# Test artifacts (mission DBs created by test runs)
+test_missions_*.db
+
+# Local analysis/visualization artifacts
+JARVIS_CODEBASE_ANALYSIS.html
