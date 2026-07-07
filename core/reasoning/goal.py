@@ -139,3 +139,301 @@ class GoalAnalyzer:
             constraints=constraints,
             tags=tags,
         )
+
+
+# ---------------------------------------------------------------------------
+# Phase 43 — Persistent Goal Engine additions
+# ---------------------------------------------------------------------------
+
+import logging  # noqa: E402
+from enum import Enum  # noqa: E402
+from typing import Any, Dict  # noqa: E402
+from uuid import uuid4  # noqa: E402 (already imported above, re-export fine)
+
+from core.interfaces import EventBusInterface, InterAgentMessage  # noqa: E402
+
+_goal_logger = logging.getLogger("jarvis.core.reasoning.goal")
+
+
+class GoalStatus(str, Enum):
+    """Valid lifecycle states for a persistent agent goal."""
+
+    PENDING = "pending"
+    ACTIVE = "active"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class PersistentGoal(BaseModel):
+    """Pydantic DTO for a persisted agent goal (Phase 43).
+
+    Distinct from the planning-layer ``Goal`` (Phase 21) — this is the
+    database-backed goal record with status, priority, and progress.
+    """
+
+    id: UUID = Field(default_factory=uuid4)
+    title: str = Field(..., description="Short human-readable goal title.")
+    description: Optional[str] = Field(
+        default=None, description="Detailed goal description."
+    )
+    status: GoalStatus = Field(
+        default=GoalStatus.PENDING, description="Lifecycle state."
+    )
+    priority: int = Field(
+        default=5, ge=1, le=10, description="Priority 1 (lowest) to 10 (highest)."
+    )
+    progress: float = Field(
+        default=0.0, ge=0.0, le=100.0, description="Completion percentage 0–100."
+    )
+    identity_id: Optional[UUID] = Field(
+        default=None, description="Owner identity UUID."
+    )
+    parent_goal_id: Optional[UUID] = Field(
+        default=None, description="Parent goal for hierarchical decomposition."
+    )
+    tags: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    due_at: Optional[datetime] = Field(default=None)
+    completed_at: Optional[datetime] = Field(default=None)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+
+
+class GoalService:
+    """Manages the full lifecycle of persistent agent goals."""
+
+    def __init__(
+        self,
+        repository: Optional[Any] = None,
+        event_bus: Optional[EventBusInterface] = None,
+    ) -> None:
+        """Initialise GoalService."""
+        from core.reasoning.goal_repository import GoalRepository
+
+        self.repository: Any = repository or GoalRepository()
+        self.event_bus = event_bus
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    async def create_goal(
+        self, goal: PersistentGoal, session: Optional[Any] = None
+    ) -> PersistentGoal:
+        """Persist a new goal and emit goal.created event."""
+        from core.memory.models import AgentGoalModel
+
+        model = AgentGoalModel(
+            id=goal.id,
+            title=goal.title,
+            description=goal.description,
+            status=goal.status.value,
+            priority=goal.priority,
+            progress=goal.progress,
+            identity_id=goal.identity_id,
+            parent_goal_id=goal.parent_goal_id,
+            tags=goal.tags,
+            metadata_=goal.metadata,
+            due_at=goal.due_at,
+            completed_at=goal.completed_at,
+            created_at=goal.created_at,
+            updated_at=goal.updated_at,
+        )
+
+        if session is not None:
+            await self.repository.save_goal(model, session)
+        else:
+            from core.memory.database import db_manager
+
+            async with db_manager.session() as sess:
+                await self.repository.save_goal(model, sess)
+                await sess.commit()
+
+        await self._publish("goal.created", goal)
+        _goal_logger.info("Created goal '%s' (id=%s)", goal.title, goal.id)
+        return goal
+
+    async def get_goal(
+        self, goal_id: UUID, session: Optional[Any] = None
+    ) -> Optional[PersistentGoal]:
+        """Fetch a single goal by ID. Returns None if not found."""
+        from core.memory.models import to_goal_dto
+
+        if session is not None:
+            model = await self.repository.get_goal(goal_id, session)
+        else:
+            from core.memory.database import db_manager
+
+            async with db_manager.session() as sess:
+                model = await self.repository.get_goal(goal_id, sess)
+
+        return to_goal_dto(model) if model else None
+
+    async def list_goals(
+        self,
+        status: Optional[GoalStatus] = None,
+        identity_id: Optional[UUID] = None,
+        session: Optional[Any] = None,
+    ) -> List[PersistentGoal]:
+        """List goals, optionally filtered by status and/or identity."""
+        from core.memory.models import to_goal_dto
+
+        if session is not None:
+            models = await self.repository.list_goals(
+                session,
+                status=status.value if status else None,
+                identity_id=identity_id,
+            )
+        else:
+            from core.memory.database import db_manager
+
+            async with db_manager.session() as sess:
+                models = await self.repository.list_goals(
+                    sess,
+                    status=status.value if status else None,
+                    identity_id=identity_id,
+                )
+
+        return [to_goal_dto(m) for m in models]
+
+    async def update_goal(
+        self,
+        goal_id: UUID,
+        updates: Dict[str, Any],
+        session: Optional[Any] = None,
+    ) -> PersistentGoal:
+        """Apply partial field updates to a goal. Returns updated DTO."""
+        from core.memory.models import to_goal_dto
+
+        if session is not None:
+            model = await self.repository.get_goal(goal_id, session)
+            if not model:
+                raise ValueError(f"Goal {goal_id} not found.")
+            await self.repository.update_goal(goal_id, updates, session)
+            await session.refresh(model)
+            dto = to_goal_dto(model)
+        else:
+            from core.memory.database import db_manager
+
+            async with db_manager.session() as sess:
+                model = await self.repository.get_goal(goal_id, sess)
+                if not model:
+                    raise ValueError(f"Goal {goal_id} not found.")
+                await self.repository.update_goal(goal_id, updates, sess)
+                await sess.commit()
+                model = await self.repository.get_goal(goal_id, sess)
+                dto = to_goal_dto(model)
+
+        await self._publish("goal.updated", dto)
+        return dto
+
+    async def activate_goal(
+        self, goal_id: UUID, session: Optional[Any] = None
+    ) -> PersistentGoal:
+        """Set goal status to ACTIVE."""
+        return await self.update_goal(
+            goal_id,
+            {"status": GoalStatus.ACTIVE.value,
+             "updated_at": datetime.now(timezone.utc)},
+            session,
+        )
+
+    async def complete_goal(
+        self, goal_id: UUID, session: Optional[Any] = None
+    ) -> PersistentGoal:
+        """Mark goal COMPLETED, set progress=100 and completed_at."""
+        dto = await self.update_goal(
+            goal_id,
+            {
+                "status": GoalStatus.COMPLETED.value,
+                "progress": 100.0,
+                "completed_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
+            },
+            session,
+        )
+        await self._publish("goal.completed", dto)
+        _goal_logger.info("Goal '%s' completed (id=%s)", dto.title, dto.id)
+        return dto
+
+    async def cancel_goal(
+        self, goal_id: UUID, session: Optional[Any] = None
+    ) -> PersistentGoal:
+        """Mark goal CANCELLED."""
+        return await self.update_goal(
+            goal_id,
+            {"status": GoalStatus.CANCELLED.value,
+             "updated_at": datetime.now(timezone.utc)},
+            session,
+        )
+
+    async def update_progress(
+        self, goal_id: UUID, progress: float, session: Optional[Any] = None
+    ) -> PersistentGoal:
+        """Update goal progress (0–100). Auto-completes at 100."""
+        clamped = max(0.0, min(100.0, progress))
+        updates: Dict[str, Any] = {
+            "progress": clamped,
+            "updated_at": datetime.now(timezone.utc),
+        }
+        if clamped >= 100.0:
+            updates["status"] = GoalStatus.COMPLETED.value
+            updates["completed_at"] = datetime.now(timezone.utc)
+
+        dto = await self.update_goal(goal_id, updates, session)
+        if clamped >= 100.0:
+            await self._publish("goal.completed", dto)
+        return dto
+
+    async def delete_goal(
+        self, goal_id: UUID, session: Optional[Any] = None
+    ) -> bool:
+        """Permanently remove a goal. Returns True if deleted."""
+        if session is not None:
+            deleted = await self.repository.delete_goal(goal_id, session)
+        else:
+            from core.memory.database import db_manager
+
+            async with db_manager.session() as sess:
+                deleted = await self.repository.delete_goal(goal_id, sess)
+                await sess.commit()
+
+        if deleted:
+            _goal_logger.info("Deleted goal id=%s", goal_id)
+        return deleted
+
+    async def get_active_goals(
+        self,
+        identity_id: Optional[UUID] = None,
+        session: Optional[Any] = None,
+    ) -> List[PersistentGoal]:
+        """List only ACTIVE goals, optionally scoped to an identity."""
+        return await self.list_goals(
+            status=GoalStatus.ACTIVE, identity_id=identity_id, session=session
+        )
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    async def _publish(self, event: str, goal: PersistentGoal) -> None:
+        """Emit an event on the bus if configured."""
+        if not self.event_bus:
+            return
+        msg = InterAgentMessage(
+            sender="goal_service",
+            receiver="all",
+            action=event,
+            body={
+                "goal_id": str(goal.id),
+                "title": goal.title,
+                "status": goal.status.value,
+                "progress": goal.progress,
+            },
+        )
+        await self.event_bus.publish(event, msg)

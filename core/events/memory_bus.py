@@ -72,7 +72,8 @@ class MemoryEventBus(EventBus):
             logger.warning("Event bus is not active. Message dropped: %s", topic)
             return False
 
-        logger.info("EventBus [Memory] Publish to '%s': %s", topic, message.action)
+        action = getattr(message, "action", None) or (message.get("action") if isinstance(message, dict) else topic)
+        logger.info("EventBus [Memory] Publish to '%s': %s", topic, action)
 
         # Get subscribers for exact topic
         listeners = self._subscribers.get(topic, [])

@@ -15,8 +15,8 @@ async def test_budget_gate(setup_mission_env: Dict[str, Any]) -> None:
     mission_mgr = setup_mission_env["mission_mgr"]
     db_manager = setup_mission_env["db_manager"]
 
-    # 1. Create a mission with a budget limit lower than step costs (steps estimate: 2.50, 5.00)
-    res = await mission_mgr.create_mission(goal="Budget limit test", budget_limit=1.00)
+    # 1. Create a mission with a budget limit lower than step costs (fallback steps: 0.05, 0.10, 0.03)
+    res = await mission_mgr.create_mission(goal="Budget limit test", budget_limit=0.01)
     mission_id = res["mission_id"]
 
     # 2. Start the mission

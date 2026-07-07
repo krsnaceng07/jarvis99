@@ -1,11 +1,11 @@
 """
-PHASE: 18
+PHASE: 41
 STATUS: IMPLEMENTATION
 SPECIFICATION:
-    docs/79_PHASE_18_DYNAMIC_SKILL_FRAMEWORK_SPECIFICATION.md (M8 SkillInstaller)
+    docs/103_PHASE_41_CAPABILITY_REGISTRY_SPECIFICATION.md
 
 IMPLEMENTATION PLAN:
-    docs/79_PHASE_18_DYNAMIC_SKILL_FRAMEWORK_SPECIFICATION.md (M8 SkillInstaller)
+    C:/Users/kcs23/.gemini/antigravity-ide/brain/8e27d67d-09cc-4e93-9e3e-d5a4bb653dd9/implementation_plan.md
 
 AUTHORITATIVE:
     NO
@@ -126,6 +126,24 @@ class SkillInstaller:
             ctx.state = "VALIDATED"
         except JarvisSkillError as exc:
             return self._fail(ctx, "SKILL_I003", str(exc))
+
+        # --- Step 1.5: Dependency checks ---
+        try:
+            models = await self._repository.list_skills(session=None)  # type: ignore[arg-type]
+            available = {}
+            for m in models:
+                try:
+                    m_payload = json.loads(m.manifest_json)
+                    available[m.id] = self._validator.validate_manifest(m_payload)
+                except Exception:
+                    pass
+            available[ctx.manifest.id] = ctx.manifest
+
+            from core.skills.dependency_resolver import SkillDependencyResolver
+            resolver = SkillDependencyResolver(available)
+            resolver.resolve_dependencies(ctx.manifest)
+        except JarvisSkillError as exc:
+            return self._fail(ctx, exc.code, str(exc))
 
         # --- Step 2: Check already installed ---
         existing = await self._repository.get_skill_by_name(

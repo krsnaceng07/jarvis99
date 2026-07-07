@@ -265,3 +265,145 @@ def get_mission_manager(
     return kernel.container.resolve(MissionManager)
 
 
+def get_scale_manager(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the ScaleManager singleton."""
+    from core.runtime.scale import ScaleManager
+
+    return kernel.container.resolve(ScaleManager)
+
+
+def get_consensus_manager(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the ConsensusManager singleton."""
+    from core.runtime.consensus import ConsensusManager
+
+    return kernel.container.resolve(ConsensusManager)
+
+
+def get_brain_kernel(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the BrainKernel singleton."""
+    from core.runtime.brain_kernel import BrainKernel
+
+    return kernel.container.resolve(BrainKernel)
+
+
+def get_neural_layer(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the NeuralLayer singleton."""
+    from core.runtime.neural.neural_layer import NeuralLayer
+
+    return kernel.container.resolve(NeuralLayer)
+
+
+def get_decision_engine(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the DecisionEngine singleton."""
+    from core.runtime.policy.decision_engine import DecisionEngine
+
+    return kernel.container.resolve(DecisionEngine)
+
+
+def get_reflection_engine(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the ReflectionEngine singleton."""
+    from core.runtime.neural.reflection_engine import ReflectionEngine
+
+    return kernel.container.resolve(ReflectionEngine)
+
+
+def get_learning_engine(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the LearningEngine singleton."""
+    from core.runtime.neural.learning_engine import LearningEngine
+
+    return kernel.container.resolve(LearningEngine)
+
+
+def get_memory_orchestrator(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the MemoryOrchestrator singleton (Phase 19 M7)."""
+    from core.memory.orchestrator import MemoryOrchestrator
+
+    return kernel.container.resolve(MemoryOrchestrator)
+
+
+def get_context_assembler(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the ContextAssembly singleton."""
+    from core.memory.context_assembly import ContextAssembly
+
+    return kernel.container.resolve(ContextAssembly)
+
+
+def get_memory_coordinator(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the MemoryCoordinator singleton."""
+    from core.memory.memory_coordinator import MemoryCoordinator
+
+    return kernel.container.resolve(MemoryCoordinator)
+
+
+def get_workflow_engine(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the WorkflowEngine singleton."""
+    from core.workflow.workflow_engine import WorkflowEngine
+
+    return kernel.container.resolve(WorkflowEngine)
+
+
+def get_identity_service(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the IdentityService singleton."""
+    from core.reasoning.identity import IdentityService
+
+    return kernel.container.resolve(IdentityService)
+
+
+def get_identity_repository(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the IdentityRepository singleton."""
+    from core.reasoning.identity_repository import IdentityRepository
+
+    return kernel.container.resolve(IdentityRepository)
+
+
+def get_goal_service(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the GoalService singleton (Phase 43)."""
+    from core.reasoning.goal import GoalService
+
+    return kernel.container.resolve(GoalService)
+
+
+def get_goal_repository(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the GoalRepository singleton (Phase 43)."""
+    from core.reasoning.goal_repository import GoalRepository
+
+    return kernel.container.resolve(GoalRepository)
+
+
+def get_goal_scheduler(
+    kernel: Kernel = Depends(get_kernel),
+) -> Any:
+    """FastAPI dependency: resolve the GoalScheduler singleton (Phase 44)."""
+    from core.mission.mission_scheduler import GoalScheduler
+
+    return kernel.container.resolve(GoalScheduler)

@@ -48,20 +48,10 @@ class ReasoningExecutionEngine:
         planning_service: PlanningService,
         version_manager: PlanVersionManager,
         event_bus: Optional[EventBusInterface] = None,
+        llm_runtime: Optional[Any] = None,
+        tool_selector: Optional[Any] = None,
     ) -> None:
-        """Initialize ReasoningExecutionEngine.
-
-        Args:
-            orchestrator: ExecutionOrchestrator instance.
-            reflection_engine: ReflectionEngine instance.
-            router: ModelRouter instance.
-            prompt_builder: PromptBuilder instance.
-            cost_governor: CostGovernor instance.
-            settings: Settings config profile.
-            planning_service: PlanningService instance.
-            version_manager: PlanVersionManager instance.
-            event_bus: Optional global EventBus gateway connection.
-        """
+        """Initialize ReasoningExecutionEngine."""
         self.orchestrator = orchestrator
         self.reflection_engine = reflection_engine
         self.router = router
@@ -71,6 +61,8 @@ class ReasoningExecutionEngine:
         self.planning_service = planning_service
         self.version_manager = version_manager
         self.event_bus = event_bus or getattr(orchestrator, "event_bus", None)
+        self.llm_runtime = llm_runtime
+        self.tool_selector = tool_selector
 
     async def execute_goal(
         self,
@@ -424,8 +416,29 @@ class ReasoningExecutionEngine:
             )
 
         # 3. Decompose goal to tasks
-        task_gen = TaskGenerator()
-        tasks = task_gen.decompose(analysis, goal)
+        task_gen = TaskGenerator(llm_runtime=self.llm_runtime)
+        if self.llm_runtime is not None:
+            tasks = await task_gen.decompose_with_llm(analysis, goal)
+        else:
+            tasks = task_gen.decompose(analysis, goal)
+
+        # 3b. Intelligent tool re-selection
+        if self.tool_selector is not None:
+            for t in tasks:
+                desc = (
+                    t.payload.get("instruction")
+                    or t.payload.get("command")
+                    or t.payload.get("query")
+                    or str(t.payload)
+                )
+                try:
+                    sel = await self.tool_selector.select_tool(desc, {
+                        "memory_context": memories_list,
+                    })
+                    if sel.confidence > 0.80:
+                        t.executor = sel.executor_type
+                except Exception:
+                    pass
 
         # 4. Build dependency graph
         dep_builder = DependencyBuilder(tasks)
@@ -466,7 +479,7 @@ class ReasoningExecutionEngine:
 
         # 8. Execution loop across waves
         wave_idx = 0
-        dispatcher = dispatcher or ToolDispatcher()
+        dispatcher = dispatcher or ToolDispatcher(tool_selector=self.tool_selector)
         context = {"memory_service": memory_service}
 
         while wave_idx < len(plan.waves):

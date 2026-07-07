@@ -104,6 +104,7 @@ class SwarmOrchestrator(ISwarmCoordinator):
         dispatcher: Optional[Any] = None,
         reflection: Optional[Any] = None,
         decision: Optional[Any] = None,
+        llm_runtime: Optional[Any] = None,
         max_concurrent: int = 5,
     ) -> None:
         """Initialize SwarmOrchestrator."""
@@ -120,6 +121,7 @@ class SwarmOrchestrator(ISwarmCoordinator):
         self.dispatcher = dispatcher
         self.reflection = reflection
         self.decision = decision
+        self.llm_runtime = llm_runtime
 
         # Concurrency and Worker Loop Management
         self.max_concurrent = max_concurrent
@@ -388,8 +390,11 @@ class SwarmOrchestrator(ISwarmCoordinator):
         analysis = GoalAnalysis(
             goal_id=task.task_id, objective=task.goal, success_criteria=[]
         )
-        decomposer = TaskGenerator()
-        reasoning_tasks = decomposer.decompose(analysis, task.goal)
+        decomposer = TaskGenerator(llm_runtime=self.llm_runtime)
+        if self.llm_runtime is not None:
+            reasoning_tasks = await decomposer.decompose_with_llm(analysis, task.goal)
+        else:
+            reasoning_tasks = decomposer.decompose(analysis, task.goal)
 
         from core.runtime.persistence_journal import PersistentExecutionJournal
 

@@ -210,12 +210,36 @@ class MemoryService:
         return True
 
     async def forget(self, query_filter: Dict[str, Any]) -> int:
-        """Identify matching memory chunks and trigger deletion cascades."""
-        # For simplicity, we can fetch chunks and delete them.
-        # SQLite / Postgres repository has soft delete.
-        # This can be implemented based on filter criteria.
-        # Wait, since memory repository interface doesn't have list chunks,
-        # we can retrieve by keyword or filter metadata.
-        # Let's perform a simple delete if a chunk matches the ID or metadata.
-        # ...
-        return 0
+        """Identify matching memory chunks and trigger deletion cascades.
+
+        Supports:
+          - ``chunk_id`` (UUID/str): delete a single chunk by ID.
+          - ``keyword`` or ``content`` (str): keyword search then bulk soft-delete.
+          - ``limit`` (int, default 100): cap on chunks returned by keyword search.
+
+        Returns:
+            Number of chunks successfully soft-deleted.
+        """
+        deleted = 0
+
+        # Case 1: direct chunk_id
+        chunk_id_raw = query_filter.get("chunk_id")
+        if chunk_id_raw is not None:
+            chunk_id = (
+                chunk_id_raw
+                if isinstance(chunk_id_raw, UUID)
+                else UUID(str(chunk_id_raw))
+            )
+            if await self.delete(chunk_id):
+                deleted += 1
+            return deleted
+
+        # Case 2: keyword-based bulk delete (spec §12 User-Forget)
+        keyword = query_filter.get("keyword") or query_filter.get("content")
+        if isinstance(keyword, str) and keyword:
+            limit = int(query_filter.get("limit", 100))
+            matches = await self.memory_repo.keyword_search_chunks(keyword, limit)
+            for chunk in matches:
+                if await self.delete(chunk.id):
+                    deleted += 1
+        return deleted

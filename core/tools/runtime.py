@@ -140,4 +140,30 @@ class ToolRuntime:
         )
         await self.event_bus.publish("system.tool.executed", event_msg)
 
+        # Publish tool.executed event asynchronously for Phase 40
+        if self.event_bus:
+            try:
+                status_str = "SUCCESS" if result_dto.exit_code == 0 else "FAILURE"
+                tool_executed_msg = InterAgentMessage(
+                    sender="tool_runtime",
+                    receiver="all",
+                    action="tool.executed",
+                    body={
+                        "node_id": caller_id,
+                        "task_type": "tool",
+                        "status": status_str,
+                        "exit_code": result_dto.exit_code,
+                        "stdout": result_dto.stdout,
+                        "stderr": result_dto.stderr,
+                        "error": None,
+                    },
+                    correlation_id=uuid4(),
+                )
+                await self.event_bus.publish("tool.executed", tool_executed_msg)
+            except Exception as e:
+                import logging
+                logging.getLogger("jarvis.core.tools.runtime").error(
+                    "Failed to publish tool.executed event: %s", e
+                )
+
         return result_dto

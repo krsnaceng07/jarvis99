@@ -59,23 +59,37 @@ class TestHealthProbe:
         assert records[0].last_heartbeat is not None
 
     @pytest.mark.asyncio
-    async def test_multiple_components(self, probe: HealthProbe) -> None:
-        """HealthProbe tracks multiple components independently."""
-        await probe.emit_heartbeat("CompA")
-        await asyncio.sleep(0.05)
-        await probe.emit_heartbeat("CompB")
+    async def test_multiple_components(self) -> None:
+        """HealthProbe tracks multiple components independently.
 
-        statuses = await probe.get_health_status()
+        Uses a 0.5s timeout probe so timing margins are wide enough
+        for Windows asyncio sleep imprecision under test-suite load.
+        """
+        # Separate probe with generous timeout so asyncio.sleep imprecision
+        # on Windows (proactor event loop) does not cause false OFFLINE.
+        wide_probe = HealthProbe(heartbeat_timeout_seconds=0.5)
+
+        await wide_probe.emit_heartbeat("CompA")
+        await asyncio.sleep(0.05)  # 50ms gap — CompA has 450ms remaining
+        await wide_probe.emit_heartbeat("CompB")
+
+        statuses = await wide_probe.get_health_status()
         assert statuses["CompA"] == ComponentStatus.ONLINE.value
         assert statuses["CompB"] == ComponentStatus.ONLINE.value
 
-        # Wait until CompA times out but CompB is still online
-        # CompA timeout is at 0.1s since its creation (started at t=0, so timeout at t=0.1)
-        # CompB started at t=0.05, timeout at t=0.15
-        # Wait to reach t=0.11
-        await asyncio.sleep(0.07)
+        # Phase 2: verify independent timeout tracking.
+        # Use a fresh probe so wide_probe's first-phase elapsed time doesn't interfere.
+        # Timeline: CompA heartbeat at t=0, CompB at t=0.1s, check at t=0.55s.
+        #   CompA elapsed = 0.55s  > 0.5s timeout → OFFLINE  (margin: +50ms)
+        #   CompB elapsed = 0.45s  < 0.5s timeout → ONLINE   (margin: -50ms)
+        # 50ms margin on each side is robust to Windows asyncio sleep imprecision.
+        wide_probe2 = HealthProbe(heartbeat_timeout_seconds=0.5)
+        await wide_probe2.emit_heartbeat("CompA")
+        await asyncio.sleep(0.1)   # 100ms gap between the two heartbeats
+        await wide_probe2.emit_heartbeat("CompB")
+        await asyncio.sleep(0.45)  # CompA: 0.55s elapsed (OFFLINE), CompB: 0.45s (ONLINE)
 
-        statuses2 = await probe.get_health_status()
+        statuses2 = await wide_probe2.get_health_status()
         assert statuses2["CompA"] == ComponentStatus.OFFLINE.value
         assert statuses2["CompB"] == ComponentStatus.ONLINE.value
 

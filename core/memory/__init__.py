@@ -22,6 +22,7 @@ from core.memory.dto import (
     MemoryType,
     MemoryVisibility,
     PromotionAction,
+    PromotionRequest,
     PromotionResponse,
     RecallMetadata,
     ReflectionRequest,

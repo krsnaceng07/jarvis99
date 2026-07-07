@@ -250,8 +250,12 @@ async def test_authority_audit_full_flow() -> None:
 @pytest.mark.asyncio
 async def test_repository_audit_naming_and_headers() -> None:
     """Test RepositoryAudit naming convention and header verification checks."""
-    audit = RepositoryAudit()
-    root = os.path.abspath("e:/jarvis")
+    import audit.repository_audit as _ra_mod
+
+    audit_obj = RepositoryAudit()
+    # Mirror the exact root_dir logic from RepositoryAudit.run() so paths are
+    # consistent across Windows and WSL/Linux environments.
+    root = os.path.dirname(os.path.dirname(os.path.abspath(_ra_mod.__file__)))
 
     header_valid = '"""\nPHASE: 16\nSTATUS: IMPLEMENTATION\nSPECIFICATION:\nIMPLEMENTATION PLAN:\nAUTHORITATIVE:\nDO NOT CHANGE CONTRACTS HERE.\n"""'
 
@@ -267,7 +271,7 @@ async def test_repository_audit_naming_and_headers() -> None:
         patch("os.path.getsize", return_value=500),
         patch("builtins.open", mock_open(read_data=header_valid)),
     ):
-        res = await audit.run()
+        res = await audit_obj.run()
         assert res.status == AuditStatus.FAIL
         assert len(res.details["naming_violations"]) > 0
 

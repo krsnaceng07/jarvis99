@@ -16,6 +16,7 @@ Contracts come only from Phase Specification.
 
 from __future__ import annotations
 
+import logging
 import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
@@ -31,6 +32,8 @@ from core.tools.human_runtime import HumanRuntime
 # Import real execution runtimes
 from core.tools.python_runtime import PythonRuntime
 from core.tools.shell_runtime import ShellRuntime
+
+logger = logging.getLogger(__name__)
 
 
 class BaseExecutor(ABC):
@@ -144,11 +147,54 @@ class HumanExecutor(BaseExecutor):
 
 
 class LlmExecutor(BaseExecutor):
-    """Executes direct LLM text generation prompts."""
+    """Executes direct LLM text generation prompts via LlmRuntime."""
+
+    def __init__(self, llm_runtime: Optional[Any] = None) -> None:
+        self._runtime = llm_runtime
 
     async def execute(self, task: Task, context: Dict[str, Any]) -> ToolExecutionResult:
         start_time = time.perf_counter()
         prompt = task.payload.get("prompt") or task.payload.get("instruction") or ""
+
+        if self._runtime is not None:
+            from core.tools.llm_runtime import LlmRequest
+
+            request = LlmRequest(
+                prompt=prompt,
+                system_prompt=task.payload.get("system_prompt"),
+                category=task.payload.get("category", "reasoning"),
+                max_tokens=task.payload.get("max_tokens", 1000),
+                temperature=task.payload.get("temperature", 0.0),
+            )
+            try:
+                response = await self._runtime.generate(request)
+                if response.error:
+                    return ToolExecutionResult(
+                        task_id=task.id,
+                        status="ERROR",
+                        error=response.error,
+                        duration=time.perf_counter() - start_time,
+                    )
+                return ToolExecutionResult(
+                    task_id=task.id,
+                    status="SUCCESS",
+                    stdout=response.text,
+                    exit_code=0,
+                    duration=time.perf_counter() - start_time,
+                    artifacts={
+                        "provider": response.provider_name,
+                        "model": response.model_name,
+                        "prompt_tokens": response.prompt_tokens,
+                        "completion_tokens": response.completion_tokens,
+                    },
+                )
+            except Exception as e:
+                return ToolExecutionResult(
+                    task_id=task.id,
+                    status="ERROR",
+                    error=str(e),
+                    duration=time.perf_counter() - start_time,
+                )
 
         stdout = f"LLM generated response for instruction: {prompt}"
 
@@ -220,10 +266,26 @@ def _default_browser_executor() -> BrowserExecutor:
 
 
 class ToolDispatcher:
-    """Central registry routing executing tasks to their respective subclass runtimes."""
+    """Central registry routing executing tasks to their respective subclass runtimes.
+
+    When a ToolSelectionEngine is provided, enables:
+    - Intelligent tool re-selection before dispatch
+    - Automatic retry with fallback on failure (max 2 retries)
+    - Performance tracking per execution
+
+    When a RepairEngine is provided, enables:
+    - Autonomous multi-stage repair with escalation
+    - Failure learning and pattern caching
+    - LLM-enhanced root cause analysis
+    """
+
+    MAX_RETRIES = 2
 
     def __init__(
-        self, executors: Optional[Dict[ExecutorType, BaseExecutor]] = None
+        self,
+        executors: Optional[Dict[ExecutorType, BaseExecutor]] = None,
+        tool_selector: Optional[Any] = None,
+        repair_engine: Optional[Any] = None,
     ) -> None:
         self.executors = executors or {
             ExecutorType.PYTHON: PythonExecutor(),
@@ -235,6 +297,8 @@ class ToolDispatcher:
             ExecutorType.API: ApiExecutor(),
             ExecutorType.FILE: FileExecutor(),
         }
+        self._tool_selector = tool_selector
+        self._repair_engine = repair_engine
 
     async def dispatch(
         self, task: Task, context: Dict[str, Any]
@@ -246,11 +310,96 @@ class ToolDispatcher:
                 status="ERROR",
                 error=f"No executor registered for type: {task.executor}",
             )
+
+        start = time.perf_counter()
         try:
-            return await executor.execute(task, context)
+            result = await executor.execute(task, context)
         except Exception as e:
-            return ToolExecutionResult(
+            result = ToolExecutionResult(
                 task_id=task.id,
                 status="ERROR",
                 error=str(e),
             )
+        latency = time.perf_counter() - start
+
+        if self._tool_selector is not None:
+            self._tool_selector.record_result(
+                task.executor,
+                result.status == "SUCCESS",
+                latency,
+                getattr(result, "cost", 0.0),
+            )
+
+        if result.status != "SUCCESS":
+            if self._repair_engine is not None:
+                outcome = await self._repair_engine.attempt_repair(
+                    task, result, self.executors, context,
+                )
+                result = outcome.result
+            elif self._tool_selector is not None:
+                result = await self._retry_with_fallback(task, context, result)
+
+        return result
+
+    async def _retry_with_fallback(
+        self,
+        task: Task,
+        context: Dict[str, Any],
+        original_result: ToolExecutionResult,
+    ) -> ToolExecutionResult:
+        """Attempt fallback executors on failure."""
+        tried = {task.executor}
+        last_result = original_result
+        description = (
+            task.payload.get("instruction")
+            or task.payload.get("command")
+            or task.payload.get("query")
+            or task.payload.get("prompt")
+            or str(task.payload)
+        )
+
+        for attempt in range(self.MAX_RETRIES):
+            fallback = await self._tool_selector.select_fallback(
+                failed_executor=task.executor if attempt == 0 else list(tried)[-1],
+                task_description=description,
+                error=last_result.error or "Unknown error",
+                context=context,
+            )
+            if fallback is None or fallback.executor_type in tried:
+                break
+
+            tried.add(fallback.executor_type)
+            alt_executor = self.executors.get(fallback.executor_type)
+            if not alt_executor:
+                continue
+
+            logger.info(
+                "Retry %d: switching from %s to %s for task %s",
+                attempt + 1,
+                task.executor.value,
+                fallback.executor_type.value,
+                task.id,
+            )
+
+            start = time.perf_counter()
+            try:
+                alt_result = await alt_executor.execute(task, context)
+            except Exception as e:
+                alt_result = ToolExecutionResult(
+                    task_id=task.id,
+                    status="ERROR",
+                    error=str(e),
+                )
+            latency = time.perf_counter() - start
+
+            self._tool_selector.record_result(
+                fallback.executor_type,
+                alt_result.status == "SUCCESS",
+                latency,
+            )
+
+            if alt_result.status == "SUCCESS":
+                return alt_result
+            last_result = alt_result
+
+        return last_result

@@ -89,6 +89,11 @@ class _InMemoryRepository:
     async def get_skill_by_id(self, skill_id: str, session: Any = None) -> Any:
         return self._skills.get(skill_id)
 
+    async def list_skills(
+        self, session: Any = None, limit: int = 50, offset: int = 0
+    ) -> list[Any]:
+        return list(self._skills.values())
+
     async def save_installed_skill(self, skill: Any, session: Any = None) -> None:
         self._skills[skill.id] = skill
         self._skills_by_name[skill.name] = skill.id

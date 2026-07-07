@@ -108,6 +108,21 @@ Applies to all files written under the `docs/` folder in Phase 0.
 - [88_PHASE_27_OBSERVABILITY_COST_GOVERNANCE_SPECIFICATION.md](file:///e:/jarvis/docs/88_PHASE_27_OBSERVABILITY_COST_GOVERNANCE_SPECIFICATION.md) – Phase 27 Observability, Cost Governance & Live Execution Streaming spec. **STATUS: FROZEN**
 - [90_PHASE_28_SECURITY_VAULT_HARDENING_SPECIFICATION.md](file:///e:/jarvis/docs/90_PHASE_28_SECURITY_VAULT_HARDENING_SPECIFICATION.md) – Phase 28 Security & Vault Hardening spec. **STATUS: FROZEN**
 - [91_PHASE_29_ADVANCED_VAULT_OPERATIONS_SPECIFICATION.md](file:///e:/jarvis/docs/91_PHASE_29_ADVANCED_VAULT_OPERATIONS_SPECIFICATION.md) – Phase 29 Advanced Vault Operations spec. **STATUS: FROZEN**
+- [92_PHASE_30_CLOUD_SYNC_HIGH_AVAILABILITY_SPECIFICATION.md](file:///e:/jarvis/docs/92_PHASE_30_CLOUD_SYNC_HIGH_AVAILABILITY_SPECIFICATION.md) – Phase 30 Cloud Sync & High Availability spec. **STATUS: FROZEN**
+- [93_PHASE_31_FEDERATION_SPECIFICATION.md](file:///e:/jarvis/docs/93_PHASE_31_FEDERATION_SPECIFICATION.md) – Phase 31 Platform Scale & Federation spec. **STATUS: FROZEN**
+- [94_PHASE_32_ADMINISTRATION_OPERATIONS_SPECIFICATION.md](file:///e:/jarvis/docs/94_PHASE_32_ADMINISTRATION_OPERATIONS_SPECIFICATION.md) – Phase 32 Platform Administration & Operations spec. **STATUS: FROZEN**
+- [95_PHASE_33_PRODUCTION_READINESS_SPECIFICATION.md](file:///e:/jarvis/docs/95_PHASE_33_PRODUCTION_READINESS_SPECIFICATION.md) – Phase 33 Enterprise Deployment & Production Readiness spec. **STATUS: FROZEN**
+- [96_PHASE_34_AUTONOMOUS_AGENT_MISSION_SPECIFICATION.md](file:///e:/jarvis/docs/96_PHASE_34_AUTONOMOUS_AGENT_MISSION_SPECIFICATION.md) – Phase 34 Autonomous Mission Engine spec. **STATUS: FROZEN**
+- [97_PHASE_35_DISTRIBUTED_SCALE_SPECIFICATION.md](file:///e:/jarvis/docs/97_PHASE_35_DISTRIBUTED_SCALE_SPECIFICATION.md) – Phase 35 Distributed Compute & Task Offloading spec. **STATUS: FROZEN**
+- [98_PHASE_36_SWARM_INTELLIGENCE_SPECIFICATION.md](file:///e:/jarvis/docs/98_PHASE_36_SWARM_INTELLIGENCE_SPECIFICATION.md) – Phase 36 Swarm Intelligence & Consensus spec. **STATUS: FROZEN**
+- [99_PHASE_37_BRAIN_KERNEL_SPECIFICATION.md](file:///e:/jarvis/docs/99_PHASE_37_BRAIN_KERNEL_SPECIFICATION.md) – Phase 37 Brain Kernel & Neural Intelligence Layer spec. **STATUS: FROZEN**
+- [100_PHASE_38_UNIFIED_MEMORY_SPECIFICATION.md](file:///e:/jarvis/docs/100_PHASE_38_UNIFIED_MEMORY_SPECIFICATION.md) – Phase 38 Unified Memory & Knowledge Graph spec. **STATUS: FROZEN**
+- [101_PHASE_39_WORKFLOW_GRAPH_ENGINE_SPECIFICATION.md](file:///e:/jarvis/docs/101_PHASE_39_WORKFLOW_GRAPH_ENGINE_SPECIFICATION.md) – Phase 39 Workflow Graph Engine & Autonomous Workflow Runtime spec. **STATUS: FROZEN**
+- [102_PHASE_40_EVENT_BUS_REACTIVE_ARCHITECTURE_SPECIFICATION.md](file:///e:/jarvis/docs/102_PHASE_40_EVENT_BUS_REACTIVE_ARCHITECTURE_SPECIFICATION.md) – Phase 40 Event Bus & Reactive Architecture spec. **STATUS: FROZEN**
+- [103_PHASE_41_CAPABILITY_REGISTRY_SPECIFICATION.md](file:///e:/jarvis/docs/103_PHASE_41_CAPABILITY_REGISTRY_SPECIFICATION.md) – Phase 41 Capability Registry & Skill Runtime spec. **STATUS: FROZEN**
+- [104_PHASE_42_IDENTITY_ENGINE_SPECIFICATION.md](file:///e:/jarvis/docs/104_PHASE_42_IDENTITY_ENGINE_SPECIFICATION.md) – Phase 42 Identity Engine spec. **STATUS: FROZEN**
+- [105_PHASE_43_GOAL_ENGINE_SPECIFICATION.md](file:///e:/jarvis/docs/105_PHASE_43_GOAL_ENGINE_SPECIFICATION.md) – Phase 43 Goal Engine spec. **STATUS: FROZEN**
+- [106_PHASE_44_MISSION_SCHEDULER_SPECIFICATION.md](file:///e:/jarvis/docs/106_PHASE_44_MISSION_SCHEDULER_SPECIFICATION.md) – Phase 44 Mission & Autonomous Goal Scheduler spec. **STATUS: DRAFT**
 
 ## Responsibilities
 - **Documentation Agent:** Manages links updates in this index after compiling documentation files.

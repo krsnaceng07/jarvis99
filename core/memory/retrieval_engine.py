@@ -318,6 +318,12 @@ class RetrievalEngine:
             # 6. Scoring (ScoringEngine.rank())
             scoring_inputs = []
             for record in metadata_filtered:
+                sim = 0.0
+                if (
+                    self._candidate_provider is not None
+                    and hasattr(self._candidate_provider, "get_similarity")
+                ):
+                    sim = self._candidate_provider.get_similarity(record.memory_id)
                 scoring_inputs.append(
                     ScoringInput(
                         memory_id=record.memory_id,
@@ -327,7 +333,7 @@ class RetrievalEngine:
                         access_count=0,
                         last_accessed=record.updated_at,
                         created_at=record.created_at,
-                        semantic_similarity=0.0,
+                        semantic_similarity=sim,
                         tier=self._infer_tier(record),
                     )
                 )

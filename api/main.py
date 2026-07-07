@@ -31,8 +31,14 @@ from api.routes import (
     admin,
     agent,
     auth,
+    capabilities,
     federation,
+    federation_scale,
+    goal,
     health,
+    identity,
+    memory,
+    mission_scheduler,
     missions,
     platform,
     skills,
@@ -137,18 +143,24 @@ def create_app() -> FastAPI:
 
     # 4. Mount HTTP endpoints under /api/v1
     app.include_router(health.router, prefix="/api/v1")
+    app.include_router(memory.router, prefix="/api/v1")
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(users.router, prefix="/api/v1")
     app.include_router(agent.router, prefix="/api/v1")
     app.include_router(workflow.router, prefix="/api/v1")
     app.include_router(skills.router, prefix="/api/v1")
+    app.include_router(capabilities.router, prefix="/api/v1")
     app.include_router(vault.router, prefix="/api/v1")
     app.include_router(sync.router, prefix="/api/v1")
     app.include_router(federation.router, prefix="/api/v1")
+    app.include_router(federation_scale.router, prefix="/api/v1")
     app.include_router(admin.router)
     app.include_router(observability_router)
     app.include_router(platform.router)
     app.include_router(missions.router)
+    app.include_router(identity.router, prefix="/api/v1")
+    app.include_router(goal.router, prefix="/api/v1")
+    app.include_router(mission_scheduler.router, prefix="/api/v1")
 
     # 5. Mount WebSocket telemetry endpoint under /ws/v1
     app.include_router(stream_service.router, prefix="/ws/v1")

@@ -19,6 +19,18 @@
 - Phase 32 (Platform Administration & Operations) — FROZEN 2026-07-05 at 1102 tests
 - Phase 33 (Enterprise Deployment, Operations & Production Readiness) — FROZEN 2026-07-05 at 1115 tests
 - Phase 34 (Autonomous Mission Engine & Long-Running Agents) — FROZEN 2026-07-05 at 1126 tests
+- Phase 35 (Distributed Compute & Task Offloading) — FROZEN 2026-07-05 at 1132 tests
+- Phase 36 (Swarm Intelligence & Consensus) — FROZEN 2026-07-05 at 1136 tests
+- Phase 37 (Brain Kernel & Neural Intelligence Layer) — FROZEN 2026-07-05 at 1136 tests
+- Phase 38 (Unified Memory & Knowledge Graph) — FROZEN 2026-07-05 at 1164 tests
+- Phase 39 (Workflow Graph Engine & Autonomous Workflow Runtime) — FROZEN 2026-07-05 at 1208 tests
+- Phase 40 (Event Bus & Reactive Architecture) — FROZEN 2026-07-06 at 1215 tests
+- Phase 41 (Capability Registry & Skill Runtime) — FROZEN 2026-07-06 at 60 tests (1215 total)
+- Phase 42 (Identity Engine) — FROZEN 2026-07-06 at 44 tests (1259 total)
+- Phase 35 (Distributed Task Offloading & Remote Tool Execution) — FROZEN 2026-07-05 at 1132 tests
+- Phase 36 (Swarm Intelligence & Multi-Agent Consensus) — FROZEN 2026-07-05 at 1136 tests (note: Milestone 2 routes pending approval)
+- Phase 37 (Brain Kernel & Neural Intelligence Layer) — FROZEN 2026-07-05 at 1136 tests
+- Phase 38 (Unified Memory & Knowledge Graph) — FROZEN 2026-07-05 at 1164 tests
 
 **Frozen Files:**
 - core/architecture/frozen_interfaces.py
@@ -120,7 +132,33 @@
 - tests/test_approval_gate.py             # Phase 34: Budget and safety gates tests
 - tests/test_multi_agent_mission.py      # Phase 34: Multi-agent coordination tests
 - tests/test_mission_coverage_boost.py   # Phase 34: Extra coverage tests
-
+- core/runtime/scale.py                   # Phase 35: ScaleManager coordinator
+- api/routes/federation_scale.py          # Phase 35: Scale REST routing endpoints
+- tests/test_distributed_scale.py         # Phase 35: Distributed task scale tests
+- core/memory/working_memory.py          # Phase 38: Transient context window manager
+- core/memory/long_term_memory.py        # Phase 38: Persistent episodic/semantic vector router
+- core/memory/episodic_memory.py         # Phase 38: Completed task and experience history
+- core/memory/semantic_memory.py         # Phase 38: Conceptual knowledge and fact retrieval
+- core/memory/procedural_memory.py       # Phase 38: Reusable workflows and execution patterns
+- core/memory/knowledge_graph.py         # Phase 38: Entities, relations, and triple indexer
+- core/memory/context_assembly.py        # Phase 38: BrainKernel context packager
+- core/memory/memory_coordinator.py      # Phase 38: Retrieval sequencing and conflict resolution
+- tests/test_unified_memory.py           # Phase 38: Unified memory verification suite
+- core/workflow/workflow_graph.py        # Phase 39: DAG node/edge data model
+- core/workflow/dag_scheduler.py         # Phase 39: Topological sort + parallel wave generator
+- core/workflow/retry_policy.py          # Phase 39: Configurable backoff and error classification
+- core/workflow/workflow_executor.py     # Phase 39: Async step executor with retry integration
+- core/workflow/checkpoint_store.py      # Phase 39: Checkpoint persistence via WorkingMemory
+- core/workflow/workflow_template.py     # Phase 39: ProceduralMemory-backed template registry
+- core/workflow/workflow_engine.py       # Phase 39: Public façade wiring all sub-components
+- tests/test_workflow_graph_engine.py    # Phase 39: Full verification suite (49 tests)
+- core/skills/capability_registry.py      # Phase 41: Global capability registry matching
+- core/skills/dependency_resolver.py      # Phase 41: Skill dependency resolver
+- core/skills/installer.py                # Phase 41: Installer, staging and rollback engine
+- core/skills/sandbox.py                  # Phase 41: Sandbox test runner
+- core/skills/signer.py                   # Phase 41: Cryptographic ECDSA signature verification
+- tests/test_skill_installer.py           # Phase 41: Installer contract tests
+- tests/test_skill_integration.py         # Phase 41: Dynamic skills integration tests
 
 **Frozen Interfaces:**
 - DependencyGraphValidator Base Class
@@ -161,4 +199,22 @@
 - Platform REST Gateway Routing          # Phase 33: Operations and readiness endpoints
 - MissionManager Interface               # Phase 34: State machine transitions, checkpoints, rollbacks, and recovery loops
 - Missions REST Gateway Routing          # Phase 34: REST API gateway endpoints for creating, listing, and controlling missions
+- ScaleManager Interface                 # Phase 35: Load metrics assessment, peer selection, and offloading coordination
+- Federation Scale REST Routing          # Phase 35: REST API endpoints for offloading, tool execution, and load callbacks
+- BrainKernel Interface                   # Phase 37: Cognitive Loop and thinking lifecycle orchestrator
+- CognitiveState Schema                  # Phase 37: Lightweight Pydantic operational metrics
+- NeuralLayer Façade                     # Phase 37: Model Router, reasoning, planning, reflection, and learning wrapper
+- DecisionEngine Interface               # Phase 37: Policy validation safety gatekeeper
+- UnifiedMemoryManager Interface         # Phase 38: Coordinates Working, Episodic, Semantic, Procedural layers
+- KnowledgeGraph Interface               # Phase 38: Entity nodes, relationships, and property graphs
+- ContextAssembly Interface              # Phase 38: BrainKernel-ready context packaging with confidence metadata
+- MemoryCoordinator Interface            # Phase 38: Internal retrieval sequencing and conflict resolution
+- WorkflowEngine Interface               # Phase 39: Public façade for run/resume/register_template/status/cancel
+- WorkflowGraph Contract                 # Phase 39: DAG node/edge model with cycle validation
+- DAGScheduler Contract                  # Phase 39: Topological wave generator yielding parallel-ready nodes
+- RetryPolicy Contract                   # Phase 39: Configurable backoff with retryable error list
+- CheckpointStore Contract               # Phase 39: Persistence via WorkingMemory only (invariant W-4)
+- WorkflowTemplate Contract              # Phase 39: ProceduralMemory-backed reusable workflow registry
+
+
 

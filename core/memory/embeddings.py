@@ -35,6 +35,52 @@ class MockEmbeddingGenerator(IEmbeddingGenerator):
         return [await self.generate_embedding(t) for t in texts]
 
 
+class SemanticEmbeddingGenerator(IEmbeddingGenerator):
+    """Embedding generator using word/n-gram hashing for semantic similarity.
+
+    Similar texts share words and n-grams, so their hashed vectors
+    have high cosine similarity — without requiring an external API.
+    """
+
+    def __init__(self, dimensions: int = 384) -> None:
+        self.dimensions = dimensions
+
+    async def generate_embedding(self, text: str) -> List[float]:
+        """Generate a semantic embedding via feature hashing."""
+        import math
+        import re
+
+        vector = [0.0] * self.dimensions
+        if not text:
+            return vector
+
+        normalized = text.lower().strip()
+        words = re.findall(r"[a-z0-9]+", normalized)
+
+        features: List[str] = []
+        features.extend(words)
+        for w in words:
+            for i in range(len(w) - 2):
+                features.append(w[i : i + 3])
+        for i in range(len(words) - 1):
+            features.append(f"{words[i]}_{words[i + 1]}")
+
+        for feature in features:
+            h = hashlib.md5(feature.encode("utf-8")).digest()
+            idx = int.from_bytes(h[:4], "big") % self.dimensions
+            sign = 1.0 if h[4] & 1 else -1.0
+            vector[idx] += sign
+
+        magnitude = math.sqrt(sum(v * v for v in vector))
+        if magnitude > 0:
+            vector = [v / magnitude for v in vector]
+        return vector
+
+    async def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """Generate embeddings for multiple texts."""
+        return [await self.generate_embedding(t) for t in texts]
+
+
 class CachedEmbeddingGenerator(IEmbeddingGenerator):
     """Decorator adding SHA256 caching and generation timeouts to an embedding generator."""
 

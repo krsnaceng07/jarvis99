@@ -265,6 +265,18 @@ class Kernel(LifecycleInterface):
             )
             version_manager = PlanVersionManager()
 
+            from core.reasoning.decision_engine import DecisionEngine as _DecisionEngine
+            from core.reasoning.tool_selector import ToolSelectionEngine as _ToolSelectionEngine
+            from core.tools.llm_runtime import LlmRuntime as _LlmRuntime
+
+            engine_llm_runtime = _LlmRuntime(
+                provider=claude_prov,
+                cost_governor=cost_governor,
+            )
+            engine_tool_selector = _ToolSelectionEngine(
+                decision_engine=_DecisionEngine(),
+                llm_runtime=engine_llm_runtime,
+            )
             execution_engine = ReasoningExecutionEngine(
                 orchestrator=orchestrator,
                 reflection_engine=reflection_engine,
@@ -275,6 +287,8 @@ class Kernel(LifecycleInterface):
                 planning_service=planning_service,
                 version_manager=version_manager,
                 event_bus=event_bus,
+                llm_runtime=engine_llm_runtime,
+                tool_selector=engine_tool_selector,
             )
 
             # Register singletons
@@ -384,9 +398,35 @@ class Kernel(LifecycleInterface):
             swarm_registry = AgentRegistry()
             swarm_subagent_manager = SubagentManager(driver=MockAdapter())
 
-            swarm_dispatcher = ToolDispatcher()
-            swarm_reflection = ReflectionEngine(settings)
+            from core.reasoning.dispatcher import LlmExecutor
+            from core.reasoning.repair_engine import RepairEngine
+            from core.reasoning.task import ExecutorType
+            from core.tools.llm_runtime import LlmRuntime
+
+            from core.reasoning.tool_selector import ToolSelectionEngine
+
+            swarm_llm_runtime = LlmRuntime(
+                provider=claude_prov,
+                cost_governor=cost_governor,
+            )
             swarm_decision = DecisionEngine()
+            tool_selector = ToolSelectionEngine(
+                decision_engine=swarm_decision,
+                llm_runtime=swarm_llm_runtime,
+            )
+            swarm_reflection = ReflectionEngine(settings)
+            swarm_repair = RepairEngine(
+                reflection_engine=swarm_reflection,
+                tool_selector=tool_selector,
+                llm_runtime=swarm_llm_runtime,
+            )
+            swarm_dispatcher = ToolDispatcher(
+                tool_selector=tool_selector,
+                repair_engine=swarm_repair,
+            )
+            swarm_dispatcher.executors[ExecutorType.LLM] = LlmExecutor(
+                llm_runtime=swarm_llm_runtime,
+            )
 
             swarm_orchestrator = SwarmOrchestrator(
                 manager=swarm_subagent_manager,
@@ -400,6 +440,7 @@ class Kernel(LifecycleInterface):
                 dispatcher=swarm_dispatcher,
                 reflection=swarm_reflection,
                 decision=swarm_decision,
+                llm_runtime=swarm_llm_runtime,
             )
 
             # Register globally for API routes dependencies
@@ -415,6 +456,42 @@ class Kernel(LifecycleInterface):
 
             self.lifecycle_manager.add_service(swarm_orchestrator)
             self.lifecycle_manager.add_service(swarm_resume_manager)
+
+            # Goal #5 — Autonomous Multi-Agent Collaboration
+            from core.runtime.conflict_resolver import ConflictResolver
+            from core.runtime.deadlock_detector import DeadlockDetector
+            from core.runtime.parallel_planner import ParallelMissionPlanner
+            from core.runtime.result_merger import ResultMerger
+            from core.runtime.role_assigner import AgentRoleAssigner
+            from core.runtime.supervisor import AgentSupervisor
+
+            role_assigner = AgentRoleAssigner(
+                registry=swarm_registry,
+                negotiator=swarm_negotiator,
+                llm_runtime=swarm_llm_runtime,
+            )
+            parallel_planner = ParallelMissionPlanner(
+                llm_runtime=swarm_llm_runtime,
+            )
+            result_merger = ResultMerger(llm_runtime=swarm_llm_runtime)
+            conflict_resolver = ConflictResolver(llm_runtime=swarm_llm_runtime)
+            agent_supervisor = AgentSupervisor(
+                registry=swarm_registry,
+                subagent_manager=swarm_subagent_manager,
+                message_bus=swarm_message_bus,
+                queue=swarm_queue,
+            )
+            deadlock_detector = DeadlockDetector(
+                lock_manager=swarm_lock_manager,
+                supervisor=agent_supervisor,
+            )
+
+            self.container.register_singleton(AgentRoleAssigner, role_assigner)
+            self.container.register_singleton(ParallelMissionPlanner, parallel_planner)
+            self.container.register_singleton(ResultMerger, result_merger)
+            self.container.register_singleton(ConflictResolver, conflict_resolver)
+            self.container.register_singleton(AgentSupervisor, agent_supervisor)
+            self.container.register_singleton(DeadlockDetector, deadlock_detector)
 
             # Phase 27 — Observability, Cost Governance & Live Execution Streaming
             from core.observability.broadcaster_interface import (
@@ -584,19 +661,275 @@ class Kernel(LifecycleInterface):
             try:
                 from core.runtime.mission import MissionManager
 
+                # Resolve Goal #5 components (registered above)
+                _pp = self.container.resolve(ParallelMissionPlanner)
+                _ra = self.container.resolve(AgentRoleAssigner)
+                _rm = self.container.resolve(ResultMerger)
+                _cr = self.container.resolve(ConflictResolver)
+                _sv = self.container.resolve(AgentSupervisor)
+
                 mission_mgr = MissionManager(
                     settings=settings,
                     db_manager=db_manager,
                     event_bus=event_bus,
                     vault_manager=vault_mgr,
                     orchestrator=orchestrator,
+                    planner=swarm_llm_runtime,
+                    parallel_planner=_pp,
+                    role_assigner=_ra,
+                    result_merger=_rm,
+                    conflict_resolver=_cr,
+                    supervisor=_sv,
+                    # memory_orchestrator set later once available
                 )
                 self.container.register_singleton(MissionManager, mission_mgr)
                 self.lifecycle_manager.add_service(mission_mgr)
+
             except Exception as e:
                 logger.warning(
                     "MissionManager registration skipped during boot: %s", str(e)
                 )
+
+            # Phase 37 — Brain Kernel & Cognitive OS core
+            try:
+                from core.runtime.brain_context import BrainContext
+                from core.runtime.brain_kernel import BrainKernel
+                from core.runtime.brain_state import CognitiveState
+                from core.runtime.neural.learning_engine import LearningEngine
+                from core.runtime.neural.model_router import (
+                    ModelRouter as CognitiveModelRouter,
+                )
+                from core.runtime.neural.neural_layer import NeuralLayer
+                from core.runtime.neural.planning_engine import PlanningEngine
+                from core.runtime.neural.reasoning_engine import ReasoningEngine
+                from core.runtime.neural.reflection_engine import (
+                    ReflectionEngine as CognitiveReflectionEngine,
+                )
+                from core.runtime.policy.decision_engine import DecisionEngine
+
+                evt_bus = self.container.resolve(EventBusInterface)
+                brain_state = CognitiveState()
+                brain_context = BrainContext()
+                cog_model_router = CognitiveModelRouter()
+                cog_model_router.register_provider("claude", claude_prov)
+                decision_engine = DecisionEngine(settings=settings)
+                reasoning_engine = ReasoningEngine(model_router=cog_model_router)
+                planning_engine = PlanningEngine(model_router=cog_model_router)
+                reflection_engine = CognitiveReflectionEngine(model_router=cog_model_router)
+                learning_engine = LearningEngine(settings=settings)
+
+                neural_layer = NeuralLayer(
+                    model_router=cog_model_router,
+                    reasoning_engine=reasoning_engine,
+                    planning_engine=planning_engine,
+                    reflection_engine=reflection_engine,
+                    learning_engine=learning_engine,
+                )
+
+                brain_kernel = BrainKernel(
+                    settings=settings,
+                    state=brain_state,
+                    context=brain_context,
+                    event_bus=evt_bus,
+                    decision_engine=decision_engine,
+                    neural_layer=neural_layer,
+                )
+
+                self.container.register_singleton(CognitiveState, brain_state)
+                self.container.register_singleton(BrainContext, brain_context)
+                self.container.register_singleton(DecisionEngine, decision_engine)
+                self.container.register_singleton(CognitiveModelRouter, cog_model_router)
+                self.container.register_singleton(ReasoningEngine, reasoning_engine)
+                self.container.register_singleton(PlanningEngine, planning_engine)
+                self.container.register_singleton(CognitiveReflectionEngine, reflection_engine)
+                self.container.register_singleton(LearningEngine, learning_engine)
+                self.container.register_singleton(NeuralLayer, neural_layer)
+                self.container.register_singleton(BrainKernel, brain_kernel)
+
+                # Post-hoc attach MissionManager (registered earlier, before BrainKernel)
+                try:
+                    from core.runtime.mission import MissionManager as _MM
+                    brain_kernel.mission_manager = self.container.resolve(_MM)
+                except Exception:
+                    pass
+            except Exception as e:
+                logger.warning("BrainKernel registration skipped during boot: %s", str(e))
+
+            # Phase 19 M7 — Memory Orchestrator (sole entry point)
+            try:
+                from core.memory.memory_repository import InMemoryRecordRepository
+                from core.memory.orchestrator import MemoryOrchestrator
+                from core.memory.retention import RetentionEngine
+                from core.memory.retrieval_engine import RetrievalEngine
+                from core.memory.scoring import ScoringEngine
+
+                from core.config import MemoryRetentionConfig
+
+                from core.memory.embeddings import (
+                    CachedEmbeddingGenerator,
+                    SemanticEmbeddingGenerator,
+                )
+                from core.memory.vector_index import (
+                    MemoryVectorIndex,
+                    VectorCandidateProvider,
+                )
+                from core.memory.vector_store import InMemoryVectorRepository
+
+                memory_repo = InMemoryRecordRepository()
+                scoring_engine = ScoringEngine()
+                retention_engine = RetentionEngine(
+                    memory_repo=memory_repo,
+                    scoring_engine=scoring_engine,
+                    config=MemoryRetentionConfig(),
+                    event_bus=event_bus,
+                )
+
+                embedding_gen = CachedEmbeddingGenerator(
+                    SemanticEmbeddingGenerator(dimensions=384),
+                )
+                vector_repo = InMemoryVectorRepository()
+                vector_index = MemoryVectorIndex(
+                    vector_repo=vector_repo,
+                    embedding_generator=embedding_gen,
+                )
+                vector_candidate = VectorCandidateProvider(
+                    vector_index=vector_index,
+                    record_repo=memory_repo,
+                )
+
+                retrieval_engine = RetrievalEngine(
+                    memory_repo, scoring_engine,
+                    candidate_provider=vector_candidate,
+                )
+                memory_orchestrator = MemoryOrchestrator(
+                    memory_service=None,
+                    scoring_engine=scoring_engine,
+                    retention_engine=retention_engine,
+                    retrieval_engine=retrieval_engine,
+                    intelligence_service=None,
+                    memory_repo=memory_repo,
+                    event_bus=event_bus,
+                    vector_index=vector_index,
+                )
+
+                self.container.register_singleton(ScoringEngine, scoring_engine)
+                self.container.register_singleton(RetentionEngine, retention_engine)
+                self.container.register_singleton(RetrievalEngine, retrieval_engine)
+                self.container.register_singleton(MemoryOrchestrator, memory_orchestrator)
+
+                try:
+                    from core.runtime.brain_kernel import BrainKernel as _BK2
+                    _bk2 = self.container.resolve(_BK2)
+                    _bk2.memory_orchestrator = memory_orchestrator
+                except Exception:
+                    pass
+
+                # Wire memory_orchestrator into MissionManager for pre-plan recall
+                try:
+                    _mm = self.container.resolve(MissionManager)
+                    _mm.memory_orchestrator = memory_orchestrator
+                except Exception:
+                    pass
+            except Exception as e:
+                logger.warning("MemoryOrchestrator registration skipped during boot: %s", str(e))
+
+            # Phase 38 — Unified Memory & Knowledge Graph
+            try:
+                from core.memory.consolidation import MemoryConsolidation
+                from core.memory.context_assembly import ContextAssembly
+                from core.memory.database import db_manager
+                from core.memory.episodic_memory import EpisodicMemory
+                from core.memory.knowledge_graph import KnowledgeGraph
+                from core.memory.long_term_memory import LongTermMemory
+                from core.memory.memory_coordinator import MemoryCoordinator
+                from core.memory.procedural_memory import ProceduralMemory
+                from core.memory.semantic_memory import SemanticMemory
+                from core.memory.working_memory import WorkingMemory
+
+                working_mem = WorkingMemory()
+                long_term_mem = LongTermMemory(db_manager=db_manager)
+                knowledge_graph = KnowledgeGraph(db_manager=db_manager)
+                episodic_mem = EpisodicMemory()
+                semantic_mem = SemanticMemory()
+                procedural_mem = ProceduralMemory()
+
+                memory_coordinator = MemoryCoordinator(
+                    working_memory=working_mem,
+                    long_term_memory=long_term_mem,
+                    knowledge_graph=knowledge_graph,
+                    episodic_memory=episodic_mem,
+                    semantic_memory=semantic_mem,
+                    procedural_memory=procedural_mem,
+                )
+
+                _memory_orch = None
+                try:
+                    from core.memory.orchestrator import MemoryOrchestrator as _MO
+                    _memory_orch = self.container.resolve(_MO)
+                except Exception:
+                    pass
+
+                context_assembler = ContextAssembly(
+                    memory_coordinator=memory_coordinator,
+                    memory_orchestrator=_memory_orch,
+                )
+
+                memory_consolidation = MemoryConsolidation(
+                    episodic_memory=episodic_mem,
+                    long_term_memory=long_term_mem,
+                    semantic_memory=semantic_mem,
+                    knowledge_graph=knowledge_graph,
+                    llm_runtime=engine_llm_runtime,
+                )
+
+                self.container.register_singleton(WorkingMemory, working_mem)
+                self.container.register_singleton(LongTermMemory, long_term_mem)
+                self.container.register_singleton(KnowledgeGraph, knowledge_graph)
+                self.container.register_singleton(EpisodicMemory, episodic_mem)
+                self.container.register_singleton(SemanticMemory, semantic_mem)
+                self.container.register_singleton(ProceduralMemory, procedural_mem)
+                self.container.register_singleton(MemoryCoordinator, memory_coordinator)
+                self.container.register_singleton(ContextAssembly, context_assembler)
+                self.container.register_singleton(MemoryConsolidation, memory_consolidation)
+                # Phase 19 — Memory event subscribers
+                try:
+                    from core.memory.event_handler import MemoryEventHandler
+
+                    mem_event_handler = MemoryEventHandler(
+                        event_bus=event_bus,
+                        working_memory=working_mem,
+                    )
+                    await mem_event_handler.initialize()
+                    self.container.register_singleton(MemoryEventHandler, mem_event_handler)
+                except Exception as _meh_err:
+                    logger.debug("MemoryEventHandler skipped: %s", _meh_err)
+            except Exception as e:
+                logger.warning("Phase 38 memory registration skipped during boot: %s", str(e))
+
+            # Phase 38 — Identity service post-hoc wiring
+            try:
+                from core.memory.working_memory import WorkingMemory
+                from core.reasoning.identity import IdentityService
+                from core.reasoning.identity_repository import IdentityRepository
+                from core.runtime.brain_context import BrainContext
+                from core.runtime.brain_kernel import BrainKernel
+
+                evt_bus = self.container.resolve(EventBusInterface)
+                brain_context = self.container.resolve(BrainContext)
+                working_mem = self.container.resolve(WorkingMemory)
+                brain_kernel = self.container.resolve(BrainKernel)
+
+                identity_repo = IdentityRepository()
+                identity_service = IdentityService(
+                    repository=identity_repo,
+                    event_bus=evt_bus,
+                    brain_context=brain_context,
+                    working_memory=working_mem,
+                )
+                self.container.register_singleton(IdentityService, identity_service)
+                brain_kernel.identity_service = identity_service
+            except Exception as e:
+                logger.warning("IdentityService registration skipped during boot: %s", str(e))
 
             # 3. Add kernel to lifecycle list (or configure dependency tree)
             self.lifecycle_manager.add_service(self)

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import time
 from decimal import Decimal
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -75,15 +75,18 @@ class LlmRuntime:
         self,
         provider: IModelProvider,
         cost_governor: CostGovernor,
+        identity_service: Optional[Any] = None,
     ) -> None:
         """Initialise LlmRuntime.
 
         Args:
             provider: Any concrete IModelProvider (OpenAI, Claude, Gemini, etc.).
             cost_governor: CostGovernor instance for budget enforcement.
+            identity_service: Optional IdentityService instance.
         """
         self.provider = provider
         self.cost_governor = cost_governor
+        self.identity_service = identity_service
 
     async def generate(self, request: LlmRequest) -> LlmResponse:
         """Execute a single LLM generation with budget gating.
@@ -121,10 +124,16 @@ class LlmRuntime:
                 duration=time.perf_counter() - start_time,
             )
 
+        # Resolve system prompt if not explicitly set
+        sys_prompt = request.system_prompt
+        if sys_prompt is None and self.identity_service is not None:
+            active_id = await self.identity_service.get_active_identity()
+            sys_prompt = active_id.system_prompt
+
         # 3. Delegate to provider (provider-specific details stay inside provider.py)
         try:
             text = await self.provider.generate(
-                request.prompt, request.system_prompt
+                request.prompt, sys_prompt
             )
         except Exception as provider_err:
             return LlmResponse(
