@@ -178,3 +178,13 @@ backups/
 # on every run. Not source-of-truth; treat as derived artifacts.
 JARVIS_CAPABILITY_MATRIX.md
 JARVIS_CAPABILITY_MATRIX.json
+
+# Ad-hoc debug helpers — one-off scripts with hardcoded local paths
+# (Windows-only, e.g. r"E:\jarvis\..."). Not part of the codebase;
+# regenerate on demand. Named with leading dots to keep them hidden.
+.inspect_*.py
+.run_with_env.py
+
+# Server startup error log — captured from background uvicorn launches
+# during ad-hoc validation. Not a log we want in the repo.
+startup.err
