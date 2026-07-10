@@ -15,6 +15,7 @@ Contracts come only from Phase Specification.
 """
 
 import contextvars
+from datetime import datetime
 from typing import Dict, Optional
 from uuid import UUID
 
@@ -204,6 +205,15 @@ class PersistenceService(LifecycleInterface):
         """Process incremental journal records."""
         session_id = msg.correlation_id
         body = msg.body or {}
+
+        # The publisher (core/runtime/persistence_journal.py) serialises
+        # the record with ``model_dump(mode="json")`` which converts
+        # ``datetime`` columns to ISO-8601 strings. SQLAlchemy's DateTime
+        # type (with SQLite) rejects strings, so re-parse the timestamp
+        # back to a ``datetime`` object before insertion.
+        ts = body.get("timestamp")
+        if isinstance(ts, str):
+            body["timestamp"] = datetime.fromisoformat(ts.replace("Z", "+00:00"))
 
         async with db_manager.session() as session:
             async with session.begin():

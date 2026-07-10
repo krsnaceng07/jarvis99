@@ -470,16 +470,14 @@ def default_specs() -> List[ProbeSpec]:
             body_factory=_agent_run_body,
             expected_status=(202,),
         ),
-        # ---- Workflows ----
-        ProbeSpec(
-            capability="workflows.list",
-            category="Workflows",
-            method="GET",
-            path="/api/v1/workflows",
-            requires_auth=True,
-            warn_status=(401,),
-            notes="route-level permission gate pending fix",
-        ),
+        # NOTE: `workflows.list` is intentionally NOT in the capability matrix.
+        # The Phase 14 spec (docs/76) defines the workflow routes as
+        # `POST /api/v1/workflows` (submit) and `GET /api/v1/workflows/{id}`
+        # (status) — there is no list-all-workflows endpoint. The capability
+        # matrix must only test defined public contracts; probing an
+        # undefined endpoint produces a misleading 405 and confuses the
+        # quality signal. Re-add a probe here only after a spec CR defines
+        # a list endpoint.
         # ---- Skills / Capabilities ----
         ProbeSpec(
             capability="capabilities.discover",
@@ -495,27 +493,24 @@ def default_specs() -> List[ProbeSpec]:
             method="GET",
             path="/api/v1/skills",
             requires_auth=True,
-            warn_status=(401,),
-            notes="route-level permission gate pending fix",
+            notes="Phase 18 spec: GET /api/v1/skills (no trailing slash)",
         ),
         # ---- Identity / Goal ----
         ProbeSpec(
             capability="identity.list",
             category="Identity",
             method="GET",
-            path="/api/v1/identity",
+            path="/api/v1/identities",
             requires_auth=True,
-            warn_status=(401,),
-            notes="route-level permission gate pending fix",
+            notes="Phase 42 spec: GET /api/v1/identities (plural)",
         ),
         ProbeSpec(
             capability="goal.list",
             category="Goal",
             method="GET",
-            path="/api/v1/goal",
+            path="/api/v1/goals",
             requires_auth=True,
-            warn_status=(401,),
-            notes="route-level permission gate pending fix (C1: GoalService DI missing)",
+            notes="Phase 43 spec: GET /api/v1/goals (plural)",
         ),
         # ---- Observability ----
         ProbeSpec(
