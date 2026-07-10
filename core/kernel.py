@@ -238,10 +238,14 @@ class Kernel(LifecycleInterface):
                 model_name="llama-3.1-8b",
                 base_url="http://localhost:8000/v1",
             )
+            # base_url MUST NOT include "/v1" — ClaudeProvider.generate() appends
+            # "/v1/messages" to it (core/reasoning/provider.py:262). A doubled
+            # "/v1/v1/messages" path is rejected with HTTP 404 by Anthropic.
+            # The provider's own default (no trailing /v1) is the canonical form.
             claude_cfg = ProviderConfig(
                 provider_name="Claude",
                 model_name="claude-3-5-sonnet",
-                base_url="https://api.anthropic.com/v1",
+                base_url="https://api.anthropic.com",
             )
             llama_prov = LlamaProvider(llama_cfg, transport, cred_manager)
             claude_prov = ClaudeProvider(claude_cfg, transport, cred_manager)
