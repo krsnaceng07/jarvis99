@@ -15,7 +15,8 @@ Applies to all files written under the `docs/` folder in Phase 0.
 - [03_PRODUCT_REQUIREMENTS.md](file:///e:/jarvis/docs/03_PRODUCT_REQUIREMENTS.md) – Product Requirements Document (PRD).
 - [04_TECHNICAL_REQUIREMENTS.md](file:///e:/jarvis/docs/04_TECHNICAL_REQUIREMENTS.md) – Technical Requirements Document (TRD).
 - [05_SYSTEM_ARCHITECTURE.md](file:///e:/jarvis/docs/05_SYSTEM_ARCHITECTURE.md) – System components and flow diagram.
-- [06_ARCHITECTURE_DECISION_RECORDS.md](file:///e:/jarvis/docs/06_ARCHITECTURE_DECISION_RECORDS.md) – ADR registry entries.
+- [06_ARCHITECTURE_DECISION_RECORDS.md](file:///e:/jarvis/docs/06_ARCHITECTURE_DECISION_RECORDS.md) – **Legacy** ADR pointer (ADR-01..05 migrated to canonical on 2026-07-10; see `docs/architecture/adrs/`).
+- [architecture/adrs/](file:///e:/jarvis/docs/architecture/adrs/README.md) – **Canonical** Architecture Decision Records registry (16 ADRs, Nygard format). Per `docs/governance/pre_milestone_gate.md` §2.2 (frozen M5.5.0).
 - [07_DESIGN_PRINCIPLES.md](file:///e:/jarvis/docs/07_DESIGN_PRINCIPLES.md) – Six core design values (Simple, Modular, etc.).
 - [08_AI_AGENT_CONSTITUTION.md](file:///e:/jarvis/docs/08_AI_AGENT_CONSTITUTION.md) – Agent roles and permission boundaries.
 - [09_PROMPT_CONSTITUTION.md](file:///e:/jarvis/docs/09_PROMPT_CONSTITUTION.md) – Standards to prevent prompt drift.

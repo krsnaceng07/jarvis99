@@ -1,15 +1,15 @@
-# ADR-004: Retention Policy — Promotion, Forgetting, Throttle, Cascade
+﻿# ADR-006: Retention Policy — Promotion, Forgetting, Throttle, Cascade
 
 **Status:** Accepted
 **Date:** 2026-07-03
 **Deciders:** JARVIS Memory Team
-**Related:** Phase 19 M5 (Retention), spec §8.2 (Retention Engine), §8.4 (MemoryRetentionConfig)
+**Related:** Phase 19 M5 (Retention), spec Â§8.2 (Retention Engine), Â§8.4 (MemoryRetentionConfig)
 
 ---
 
 ## Context
 
-Phase 19 M5 implements the Retention Engine. Memory has 3 tiers (WORKING → CONVERSATION → LONG_TERM), and chunks need to be:
+Phase 19 M5 implements the Retention Engine. Memory has 3 tiers (WORKING â†’ CONVERSATION â†’ LONG_TERM), and chunks need to be:
 - **Promoted** to a warmer tier when access/score thresholds are met
 - **Forgotten** (soft-deleted) when TTL expires, score decays, or user requests
 - **Archived** (after 30 days) for compliance / cold storage
@@ -37,7 +37,7 @@ The **Memory Orchestrator** (M7) is responsible for:
 This separation:
 - Keeps `RetentionEngine` pure and testable (no IO, no events)
 - Allows the orchestrator to batch / schedule / retry
-- Preserves the "engine proposes, orchestrator disposes" pattern (AGENTS.md §7.10)
+- Preserves the "engine proposes, orchestrator disposes" pattern (AGENTS.md Â§7.10)
 
 ### 2. Throttle: 60s Per Memory
 
@@ -107,7 +107,7 @@ Soft-deleted memories are moved to `archive` table after 30 days. Original recor
 - **Bounded:** throttle prevents runaway
 
 ### Negative
-- **Two-phase commit:** engine proposes, orchestrator executes → not atomic across the boundary
+- **Two-phase commit:** engine proposes, orchestrator executes â†’ not atomic across the boundary
 - **30-day storage:** active DB may grow if many soft-deletes
 - **Throttle may delay legitimate promotions:** a memory accessed 5 times in 60s only promotes once
 
@@ -126,9 +126,9 @@ Any change to throttle, cascade, or archive retention requires CR.
 
 ## References
 
-- Phase 19 spec §8.2 (Retention Engine)
-- Phase 19 spec §8.4 (MemoryRetentionConfig)
+- Phase 19 spec Â§8.2 (Retention Engine)
+- Phase 19 spec Â§8.4 (MemoryRetentionConfig)
 - `core/memory/dto.py` (PromotionAction, ForgettingAction, RetentionEvaluationResult)
 - `core/config.py` (MemoryRetentionConfig)
-- AGENTS.md §7.10 (Orchestrator coordinates; never bypasses; engine proposes)
+- AGENTS.md Â§7.10 (Orchestrator coordinates; never bypasses; engine proposes)
 - ADR-001-memory-storage (storage strategy)

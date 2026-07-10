@@ -1,9 +1,9 @@
-# ADR-002: Retrieval Pipeline Design
+﻿# ADR-004: Retrieval Pipeline Design
 
 **Status:** Accepted
 **Date:** 2026-07-03
 **Deciders:** JARVIS Memory Team
-**Related:** Phase 19 M4 (Retrieval), spec §6 (Retrieval Pipeline), ADR-001
+**Related:** Phase 19 M4 (Retrieval), spec Â§6 (Retrieval Pipeline), ADR-001
 
 ---
 
@@ -13,8 +13,8 @@ Phase 19 M4 implements the retrieval pipeline: given a `RetrievalRequest`, retur
 
 - **Permission filtering** (visibility, trust level, ACL)
 - **Metadata filtering** (type, tier, date range, tags)
-- **Scoring** (7-weight formula from spec §3.1)
-- **Graph expansion** (Phase 20+ — find related memories via KG)
+- **Scoring** (7-weight formula from spec Â§3.1)
+- **Graph expansion** (Phase 20+ â€” find related memories via KG)
 - **Deduplication** (collapse near-duplicate chunks)
 - **Top-K selection** (configurable cap)
 - **Event emission** (`memory.retrieve.started/completed/failed`)
@@ -25,11 +25,11 @@ Existing patterns in JARVIS (Phase 0-12): mix of ABC and Protocol. Need consiste
 
 **We use a hybrid pattern:**
 
-1. **`RetrievalEngine`** — concrete class, owns the pipeline orchestration
-2. **`IMemoryRecordRepository`** — ABC injected (read-only, no writes from retrieval)
-3. **`ScoringEngine`** — concrete class injected
-4. **`CandidateProvider`** — Protocol injected (allows KG, vector DB, hybrid extensions)
-5. **`EventBusInterface`** — ABC injected (from `core/interfaces.py`)
+1. **`RetrievalEngine`** â€” concrete class, owns the pipeline orchestration
+2. **`IMemoryRecordRepository`** â€” ABC injected (read-only, no writes from retrieval)
+3. **`ScoringEngine`** â€” concrete class injected
+4. **`CandidateProvider`** â€” Protocol injected (allows KG, vector DB, hybrid extensions)
+5. **`EventBusInterface`** â€” ABC injected (from `core/interfaces.py`)
 
 All dependencies are **constructor-injected** (no global state, no lazy imports).
 
@@ -37,23 +37,23 @@ All dependencies are **constructor-injected** (no global state, no lazy imports)
 
 ```
 RetrievalRequest
-   ↓
+   â†“
 1. Permission filter       (visibility, trust, ACL)
-   ↓
+   â†“
 2. Metadata filter         (type, tier, date, tags)
-   ↓
+   â†“
 3. Candidate fetch         (via CandidateProvider Protocol)
-   ↓
+   â†“
 4. Score                   (ScoringEngine with 7 weights)
-   ↓
+   â†“
 5. Graph expansion         (M6, optional, KG plug-in)
-   ↓
-6. Deduplication           (cosine sim > 0.95 → collapse)
-   ↓
+   â†“
+6. Deduplication           (cosine sim > 0.95 â†’ collapse)
+   â†“
 7. Top-K selection         (default 10, max 100)
-   ↓
+   â†“
 8. Event emission          (memory.retrieve.completed)
-   ↓
+   â†“
 RetrievalResponse
 ```
 
@@ -103,9 +103,9 @@ Any change to stage order requires CR (it affects observability and event semant
 
 ## References
 
-- Phase 19 spec §6 (Retrieval Pipeline)
+- Phase 19 spec Â§6 (Retrieval Pipeline)
 - `core/memory/retrieval_engine.py` (M4 implementation)
 - `core/memory/scoring.py` (M3 scoring engine)
 - `core/memory/interfaces.py` (IMemoryRecordRepository, CandidateProvider Protocol)
 - ADR-001-memory-storage (storage decision)
-- AGENTS.md §7.4 (layer dependency direction)
+- AGENTS.md Â§7.4 (layer dependency direction)

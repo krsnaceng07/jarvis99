@@ -1,4 +1,4 @@
-# ADR-002: Tiered Memory Architecture & Promotion Logic
+﻿# ADR-003: Tiered Memory Architecture & Promotion
 
 ## Status
 * **Status:** Accepted

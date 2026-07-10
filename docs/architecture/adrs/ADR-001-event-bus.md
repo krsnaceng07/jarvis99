@@ -1,4 +1,4 @@
-# ADR-001: EventBus Architecture & Message Schemas
+﻿# ADR-001: EventBus Architecture & Message Schemas
 
 ## Status
 * **Status:** Accepted

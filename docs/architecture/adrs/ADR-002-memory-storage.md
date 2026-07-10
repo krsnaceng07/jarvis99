@@ -1,15 +1,15 @@
-# ADR-001: Memory Storage Strategy
+﻿# ADR-002: Memory Records Storage Strategy
 
 **Status:** Accepted
 **Date:** 2026-07-03
 **Deciders:** JARVIS Memory Team
-**Related:** Phase 19 M2 (Repository), spec §8 (Memory), AGENTS.md §7.7
+**Related:** Phase 19 M2 (Repository), spec Â§8 (Memory), AGENTS.md Â§7.7
 
 ---
 
 ## Context
 
-Phase 19 M2 needs a memory storage backend. The system stores **Memory Records** (chunks with metadata, scores, tier, version). The M2 implementation serves the entire Memory subsystem (M0–M11). Key requirements:
+Phase 19 M2 needs a memory storage backend. The system stores **Memory Records** (chunks with metadata, scores, tier, version). The M2 implementation serves the entire Memory subsystem (M0â€“M11). Key requirements:
 
 - **Transactional writes** (ACID for promotion, cascade, archive)
 - **Versioned records** (optimistic concurrency for race protection)
@@ -17,15 +17,15 @@ Phase 19 M2 needs a memory storage backend. The system stores **Memory Records**
 - **Schema evolution** via Alembic
 - **Test isolation** (in-memory repo for unit tests, real Postgres for integration)
 
-Storage choice affects all 9 sub-milestones (M0–M9 of Phase 19). Wrong choice = expensive migration.
+Storage choice affects all 9 sub-milestones (M0â€“M9 of Phase 19). Wrong choice = expensive migration.
 
 ## Decision
 
 **We use a Protocol-based repository pattern with two implementations:**
 
-1. **`InMemoryRecordRepository`** — pure-Python dict-based, used in unit tests and for ephemeral agent state. No persistence, no concurrency guarantees beyond Python's GIL.
+1. **`InMemoryRecordRepository`** â€” pure-Python dict-based, used in unit tests and for ephemeral agent state. No persistence, no concurrency guarantees beyond Python's GIL.
 
-2. **`PostgresRecordRepository`** (planned M2 extension) — SQLAlchemy 2.0 async, PostgreSQL, used in production. ACID transactions, JSONB for properties, GIN/B-tree indexes.
+2. **`PostgresRecordRepository`** (planned M2 extension) â€” SQLAlchemy 2.0 async, PostgreSQL, used in production. ACID transactions, JSONB for properties, GIN/B-tree indexes.
 
 The public interface is **`IMemoryRecordRepository`** (ABC, frozen in `core/memory/interfaces.py`).
 
@@ -37,7 +37,7 @@ The public interface is **`IMemoryRecordRepository`** (ABC, frozen in `core/memo
 | Inheritance required | Yes | No |
 | Pydantic compat | Easy | Harder |
 | Test mocking | Easy | Easy |
-| JARVIS preference (Phase 1-12) | ABC | — |
+| JARVIS preference (Phase 1-12) | ABC | â€” |
 
 We use **ABC for repository** (need isinstance checks, Pydantic compat) and **Protocol for cross-module** (e.g., `CandidateProvider` in retrieval).
 
@@ -91,8 +91,8 @@ Any change to `IMemoryRecordRepository` requires CR.
 
 ## References
 
-- Phase 19 spec §8 (Memory Engine Architecture)
+- Phase 19 spec Â§8 (Memory Engine Architecture)
 - `core/memory/interfaces.py` (frozen ABC)
 - `core/memory/memory_repository.py` (M2 implementation)
-- AGENTS.md §7.7 (Repository = CRUD + transactions + versioning + checksums only)
+- AGENTS.md Â§7.7 (Repository = CRUD + transactions + versioning + checksums only)
 - docs/35_DATABASE_STANDARD.md (DB conventions)

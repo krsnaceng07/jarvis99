@@ -1,25 +1,25 @@
-# ADR-001: Knowledge Graph Storage Strategy for M6
+﻿# ADR-010: Knowledge Graph Storage Strategy
 
 **Status:** ACCEPTED (pending CR-1907 resolution for type definitions)
 **Date:** 2026-07-03
 **Deciders:** JARVIS architect (user), Senior Engineer
-**Related:** Phase 19 M6, AGENTS.md §6.1, Frozen spec §16.5/§16.6
+**Related:** Phase 19 M6, AGENTS.md Â§6.1, Frozen spec Â§16.5/Â§16.6
 
 ---
 
 ## Context
 
-Phase 19 M6 introduces the Knowledge Graph (KG) as a relationship engine on top of the existing Memory Engine (M0–M5). The KG must support:
+Phase 19 M6 introduces the Knowledge Graph (KG) as a relationship engine on top of the existing Memory Engine (M0â€“M5). The KG must support:
 
-- **8 node types** (frozen spec §16.5): PERSON, ORGANIZATION, LOCATION, CONCEPT, EVENT, TASK, GOAL, SKILL
-- **7 edge types** (frozen spec §16.6): KNOWS, WORKS_ON, DEPENDS_ON, OWNS, RELATED_TO, CAUSED_BY, USES
+- **8 node types** (frozen spec Â§16.5): PERSON, ORGANIZATION, LOCATION, CONCEPT, EVENT, TASK, GOAL, SKILL
+- **7 edge types** (frozen spec Â§16.6): KNOWS, WORKS_ON, DEPENDS_ON, OWNS, RELATED_TO, CAUSED_BY, USES
 - Immutable node/edge IDs (UUID v4)
 - Optimistic concurrency on versioned updates
 - Graph traversal (BFS, neighbors, shortest path, cycle detection)
 - Future KG operations: merge_nodes, archive, related_entities
 - Scale target: 100K nodes, 1M edges (Phase 20+ target)
 
-If CR-1907 is approved, the types extend to 10 node types (+ PROJECT, DOCUMENT) and 8 edge types (− KNOWS, WORKS_ON, CAUSED_BY; + MENTIONS, CREATED, PART_OF, REFERENCES). The storage decision below is independent of type set size.
+If CR-1907 is approved, the types extend to 10 node types (+ PROJECT, DOCUMENT) and 8 edge types (âˆ’ KNOWS, WORKS_ON, CAUSED_BY; + MENTIONS, CREATED, PART_OF, REFERENCES). The storage decision below is independent of type set size.
 
 ## Decision
 
@@ -38,12 +38,12 @@ If CR-1907 is approved, the types extend to 10 node types (+ PROJECT, DOCUMENT) 
 | Criterion | PostgreSQL CTE | Neo4j | NetworkX-in-memory |
 |---|---|---|---|
 | Infrastructure dep | None (already used) | NEW service | None |
-| ACID transactions | ✅ | ⚠️ Requires config | ❌ |
-| Scale to 100K nodes, 1M edges | ✅ Verified | ✅ | ❌ Memory-bound |
+| ACID transactions | âœ… | âš ï¸ Requires config | âŒ |
+| Scale to 100K nodes, 1M edges | âœ… Verified | âœ… | âŒ Memory-bound |
 | Query language | SQL (CTE) | Cypher | Python API |
 | Backup/recovery | pg_dump/restore | Neo4j-specific | Process restart |
 | Operational complexity | None added | +1 service | None |
-| Phase 0–18 already use Postgres | ✅ | ❌ | ✅ |
+| Phase 0â€“18 already use Postgres | âœ… | âŒ | âœ… |
 
 ## Alternatives Considered
 
@@ -90,13 +90,13 @@ The Protocol-based design (already in M0 interfaces) ensures the swap is local t
 
 ## CR-1907 Dependency
 
-If CR-1907 is approved, the node/edge enums in `core/memory/dto.py` will be extended from 8+7 to 10+8. The storage schema (this ADR) is **unaffected** — same tables, same indexes, same CTEs. Only the application-level enum validation changes.
+If CR-1907 is approved, the node/edge enums in `core/memory/dto.py` will be extended from 8+7 to 10+8. The storage schema (this ADR) is **unaffected** â€” same tables, same indexes, same CTEs. Only the application-level enum validation changes.
 
 ## References
 
-- Phase 19 spec §16.5 (KGNodeType frozen enum)
-- Phase 19 spec §16.6 (KGEdgeType frozen enum)
-- AGENTS.md §7.4 (layer dependency direction)
+- Phase 19 spec Â§16.5 (KGNodeType frozen enum)
+- Phase 19 spec Â§16.6 (KGEdgeType frozen enum)
+- AGENTS.md Â§7.4 (layer dependency direction)
 - docs/14_MEMORY_ENGINE_FREEZE.md (memory engine freeze)
 - docs/architecture/01_ARCHITECTURE_FREEZE.md (layer architecture)
-- CR-1907 (pending) — spec amendment for 10+8 types
+- CR-1907 (pending) â€” spec amendment for 10+8 types

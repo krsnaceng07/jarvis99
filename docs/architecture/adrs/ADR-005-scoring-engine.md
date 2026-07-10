@@ -1,15 +1,15 @@
-# ADR-003: Scoring Engine — Why 7 Weights and Pure Functions
+﻿# ADR-005: Scoring Engine — 7 Weights and Pure Functions
 
 **Status:** Accepted
 **Date:** 2026-07-03
 **Deciders:** JARVIS Memory Team
-**Related:** Phase 19 M3 (Scoring), spec §3.1 (frozen formula), spec §3.2 (frozen defaults)
+**Related:** Phase 19 M3 (Scoring), spec Â§3.1 (frozen formula), spec Â§3.2 (frozen defaults)
 
 ---
 
 ## Context
 
-Phase 19 M3 implements memory scoring. The scoring formula determines which memories are "important" and surface in retrieval. The spec §3.1 **freezes** the formula:
+Phase 19 M3 implements memory scoring. The scoring formula determines which memories are "important" and surface in retrieval. The spec Â§3.1 **freezes** the formula:
 
 ```
 FinalScore = w_recency * Recency
@@ -21,7 +21,7 @@ FinalScore = w_recency * Recency
            + w_pin * UserPin
 ```
 
-**7 weights**, all configurable, with **default values** in spec §3.2:
+**7 weights**, all configurable, with **default values** in spec Â§3.2:
 - w_recency=0.25, w_semantic=0.20, w_confidence=0.20, w_importance=0.15, w_frequency=0.10, w_trust=0.05, w_pin=0.05
 
 This ADR documents **why 7 weights** (not 3, not 10) and **why pure functions** (no side effects).
@@ -42,7 +42,7 @@ The 7 weights cover the **7 distinct dimensions of memory importance** that JARV
 | `w_trust` | Trust level (USER/SYSTEM/AGENT) | Source matters |
 | `w_pin` | User pin (1.0 boost) | Pinned memories always surface |
 
-**Why not 3?** Three weights (e.g., recency + relevance + importance) would conflate distinct concerns. `w_semantic` is query-dependent, `w_recency` is time-dependent, `w_importance` is metadata — merging them loses signal.
+**Why not 3?** Three weights (e.g., recency + relevance + importance) would conflate distinct concerns. `w_semantic` is query-dependent, `w_recency` is time-dependent, `w_importance` is metadata â€” merging them loses signal.
 
 **Why not 10?** Each additional weight adds:
 - Config complexity (operators tune 7 vs 10 vs 3)
@@ -60,7 +60,7 @@ The 7 weights cover the **7 distinct dimensions of memory importance** that JARV
 - **No LLM calls** (semantic similarity comes from pre-computed embeddings)
 
 This makes scoring:
-- **Deterministic** (same input → same output, always)
+- **Deterministic** (same input â†’ same output, always)
 - **Trivially testable** (no mocks, no fixtures)
 - **Cacheable** (pure function memoization is safe)
 - **Parallelizable** (no shared state)
@@ -69,7 +69,7 @@ This makes scoring:
 
 ### Option A: 3 weights (recency, relevance, importance)
 - **Pros:** Simpler config
-- **Cons:** Loses signal — confidence, trust, frequency all conflated
+- **Cons:** Loses signal â€” confidence, trust, frequency all conflated
 - **Verdict:** Rejected. Quality regression in retrieval precision.
 
 ### Option B: 10 weights (split w_pin into w_manual_pin + w_auto_pin)
@@ -80,7 +80,7 @@ This makes scoring:
 ### Option C: LLM-based scoring (use LLM to score each memory)
 - **Pros:** Adaptive, can learn
 - **Cons:** Non-deterministic, expensive (latency + cost), requires LLM
-- **Verdict:** Rejected. Violates "no LLM in scoring" layer rule (AGENTS.md §7.4). Pure function is non-negotiable for reproducibility.
+- **Verdict:** Rejected. Violates "no LLM in scoring" layer rule (AGENTS.md Â§7.4). Pure function is non-negotiable for reproducibility.
 
 ### Option D: ML model (train on user feedback)
 - **Pros:** Personalized
@@ -90,11 +90,11 @@ This makes scoring:
 ## Consequences
 
 ### Positive
-- **Reproducible:** same query + same memory → same score, every time
+- **Reproducible:** same query + same memory â†’ same score, every time
 - **Tunable:** operators adjust 7 weights without code change (just config)
 - **Auditable:** formula is in spec, no hidden behavior
 - **Fast:** pure function, ~1ms per score
-- **Cacheable:** result memoization safe (e.g., 1000 chunk query → 1000 scores → cache)
+- **Cacheable:** result memoization safe (e.g., 1000 chunk query â†’ 1000 scores â†’ cache)
 
 ### Negative
 - **Static weights:** no per-user or per-context adaptation
@@ -113,15 +113,15 @@ This makes scoring:
 - **Possible:** Split `w_pin` into `w_manual_pin` and `w_auto_pin` if use case emerges
 
 Any change to the 7 weights (add/remove/rename) requires:
-1. New spec §3.1 with CR
+1. New spec Â§3.1 with CR
 2. ADR supersession
 3. Migration of all `MemoryScoringConfig` instances
 
 ## References
 
-- Phase 19 spec §3.1 (frozen formula)
-- Phase 19 spec §3.2 (frozen defaults)
+- Phase 19 spec Â§3.1 (frozen formula)
+- Phase 19 spec Â§3.2 (frozen defaults)
 - `core/memory/scoring.py` (M3 implementation)
 - `core/config.py` (MemoryScoringConfig, Pydantic wrapper)
-- AGENTS.md §7.6 (compiled objects, DTOs, frozen specs are immutable)
-- AGENTS.md §7.4 (no LLM in scoring — layer rule)
+- AGENTS.md Â§7.6 (compiled objects, DTOs, frozen specs are immutable)
+- AGENTS.md Â§7.4 (no LLM in scoring â€” layer rule)

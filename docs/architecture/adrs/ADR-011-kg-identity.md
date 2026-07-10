@@ -1,9 +1,9 @@
-# ADR-005: Knowledge Graph — Storage, Identity, Versioning, Inference Boundary
+﻿# ADR-011: Knowledge Graph — Identity, Versioning, Inference Boundary
 
 **Status:** PROPOSED (pending CR-1907 for type definitions)
 **Date:** 2026-07-03
 **Deciders:** JARVIS Memory Team
-**Related:** Phase 19 M6, spec §16 (Knowledge Graph), ADR-001-memory-storage, AGENTS.md §7.4
+**Related:** Phase 19 M6, spec Â§16 (Knowledge Graph), ADR-001-memory-storage, AGENTS.md Â§7.4
 
 ---
 
@@ -16,9 +16,9 @@ Phase 19 M6 introduces the Knowledge Graph (KG) as a **relationship engine** on 
 - **Be immutable** (node IDs never reused, soft-delete only)
 - **Be versioned** (optimistic concurrency on updates)
 - **Pluggable** (KG knowledge feeds back into retrieval as `CandidateProvider`)
-- **Pure** (no AI, no LLM, no embedding — graph is structural, not semantic)
+- **Pure** (no AI, no LLM, no embedding â€” graph is structural, not semantic)
 
-The KG must integrate with existing memory (M0–M5) without creating layer violations. This ADR documents the **architectural decisions**, not the type set (which is in CR-1907).
+The KG must integrate with existing memory (M0â€“M5) without creating layer violations. This ADR documents the **architectural decisions**, not the type set (which is in CR-1907).
 
 ## Decision
 
@@ -39,7 +39,7 @@ The KG must integrate with existing memory (M0–M5) without creating layer viol
 **Why UUID v4 (not v7, not sequential)?**
 - Globally unique without coordination (KG can be distributed in Phase 20+)
 - No information leakage (sequential IDs reveal record count)
-- Phase 1-12 already uses UUID v4 — consistency
+- Phase 1-12 already uses UUID v4 â€” consistency
 
 **Why immutable IDs?**
 - A deleted node's ID can be referenced in audit logs forever
@@ -65,12 +65,12 @@ The KG must integrate with existing memory (M0–M5) without creating layer viol
 **Why?**
 - Inference belongs in the Brain layer (Phase 20+ Agent Runtime)
 - KG is **structural** (what is connected to what), not **semantic** (what does the connection mean)
-- Mixing inference into KG would violate AGENTS.md §7.4 (no LLM in lower layers)
+- Mixing inference into KG would violate AGENTS.md Â§7.4 (no LLM in lower layers)
 - Future `InferenceEngine` (M6.5+ in M6 sub-milestones) reads KG but is a separate component
 
 ```
-Storage ← → Traversal ← → Inference (separate component)
-                              ↓
+Storage â† â†’ Traversal â† â†’ Inference (separate component)
+                              â†“
                          Calls LLM/embedding
                          (NOT part of KG)
 ```
@@ -80,7 +80,7 @@ Storage ← → Traversal ← → Inference (separate component)
 The KG is in the **Domain** layer (per `docs/architecture/01_ARCHITECTURE_FREEZE.md`):
 
 ```
-UI  →  API  →  Brain  →  {Domain (KG, Retrieval, Scoring), Tools}  →  Infrastructure
+UI  â†’  API  â†’  Brain  â†’  {Domain (KG, Retrieval, Scoring), Tools}  â†’  Infrastructure
 ```
 
 `KGRepository` (infrastructure) implements `IKGRepository` (domain interface). Domain logic (graph algorithms, cycle detection) lives in `core/memory/kg_engine.py`, **not** in repository.
@@ -135,21 +135,21 @@ Any change to identity scheme (UUID v4) requires CR (breaks audit log references
 
 ## CR-1907 Dependency
 
-This ADR is **type-agnostic** — it documents architectural decisions (storage, identity, versioning, inference boundary) but does **not** specify node/edge types. The type set is in CR-1907 (currently: spec §16.5/§16.6 with 8+7 types, or 10+8 if CR-1907 is approved).
+This ADR is **type-agnostic** â€” it documents architectural decisions (storage, identity, versioning, inference boundary) but does **not** specify node/edge types. The type set is in CR-1907 (currently: spec Â§16.5/Â§16.6 with 8+7 types, or 10+8 if CR-1907 is approved).
 
 If CR-1907 is approved, this ADR remains unchanged; only the `KGNodeType` and `KGEdgeType` enums in `core/memory/dto.py` extend.
 
 ## References
 
-- Phase 19 spec §16 (Knowledge Graph)
-- Phase 19 spec §16.5 (KGNodeType frozen enum)
-- Phase 19 spec §16.6 (KGEdgeType frozen enum)
+- Phase 19 spec Â§16 (Knowledge Graph)
+- Phase 19 spec Â§16.5 (KGNodeType frozen enum)
+- Phase 19 spec Â§16.6 (KGEdgeType frozen enum)
 - `core/memory/dto.py` (KGNodeType, KGEdgeType enums)
 - ADR-001-memory-storage (storage decision)
-- AGENTS.md §7.4 (layer dependency direction)
+- AGENTS.md Â§7.4 (layer dependency direction)
 - docs/architecture/01_ARCHITECTURE_FREEZE.md
 - docs/contracts/knowledge_graph_contract.md (public API)
 - docs/failure/knowledge_graph_failure_matrix.md
 - docs/performance/knowledge_graph_performance_budget.md
 - docs/observability/knowledge_graph_observability_contract.md
-- CR-1907 (pending) — spec amendment for type set
+- CR-1907 (pending) â€” spec amendment for type set

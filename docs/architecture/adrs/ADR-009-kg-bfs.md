@@ -1,4 +1,4 @@
-# ADR-004: Relational Knowledge Graph BFS Traversal
+﻿# ADR-009: Relational Knowledge Graph BFS Traversal
 
 ## Status
 * **Status:** Accepted

@@ -148,6 +148,16 @@ secrets/
 
 # Test artifacts (mission DBs created by test runs)
 test_missions_*.db
+test_missions_*.db-shm
+test_missions_*.db-wal
 
 # Local analysis/visualization artifacts
 JARVIS_CODEBASE_ANALYSIS.html
+
+# Old venv accidentally committed
+.venv-py310/
+
+# Audit outputs — keep .md reports tracked, ignore ephemeral data
+.audit/*.log
+.audit/*.csv
+.audit/*.json
