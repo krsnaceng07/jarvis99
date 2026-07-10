@@ -128,9 +128,7 @@ def _noop(_: Any) -> Optional[Dict[str, Any]]:
 
 def _login_setup(runner: "ProbeRunner") -> Optional[Dict[str, Any]]:
     """Login as the development admin and store the token on the runner."""
-    token = runner.login(
-        username=runner.admin_username, password=runner.admin_password
-    )
+    token = runner.login(username=runner.admin_username, password=runner.admin_password)
     return {"token": token} if token else None
 
 
@@ -139,7 +137,8 @@ def _store_memory_body(_: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "content": (
             "JARVIS capability matrix probe — synthetic memory entry generated "
-            "during platform validation. timestamp=" + datetime.now(timezone.utc).isoformat()
+            "during platform validation. timestamp="
+            + datetime.now(timezone.utc).isoformat()
         ),
         "source_type": "capability_matrix",
         "importance": 0.4,
@@ -197,9 +196,8 @@ class ProbeRunner:
             response = client.post(url, json=payload)
             if response.status_code == 200:
                 data = response.json()
-                token = (
-                    data.get("data", {}).get("access_token")
-                    or data.get("access_token")
+                token = data.get("data", {}).get("access_token") or data.get(
+                    "access_token"
                 )
                 self._token = token
                 return str(token) if token is not None else None
@@ -233,9 +231,7 @@ class ProbeRunner:
         results: List[ProbeResult] = []
 
         # First probe is login (it sets the auth token used by later probes).
-        login_spec = next(
-            (s for s in specs if s.capability == "auth.login"), None
-        )
+        login_spec = next((s for s in specs if s.capability == "auth.login"), None)
         if login_spec is not None:
             results.append(self._run_one(login_spec, context={}))
             # If login failed, mark subsequent auth-required probes as skip.
@@ -317,7 +313,9 @@ class ProbeRunner:
             note = spec.notes
             err: Optional[str] = None
             if not ok:
-                err = f"unexpected status {status_code}, expected {spec.expected_status}"
+                err = (
+                    f"unexpected status {status_code}, expected {spec.expected_status}"
+                )
             elif status_code >= 400:
                 err = f"HTTP {status_code}"
 
@@ -343,7 +341,9 @@ class ProbeRunner:
                 category=spec.category,
                 method=spec.method,
                 path=spec.path,
-                status="pass" if ok else ("warn" if status_code in spec.warn_status else "fail"),
+                status="pass"
+                if ok
+                else ("warn" if status_code in spec.warn_status else "fail"),
                 http_status=status_code,
                 latency_ms=round(latency_ms, 2),
                 notes=note,
@@ -607,17 +607,11 @@ def render_markdown(report: MatrixReport) -> str:
         cat_total = len(rows)
         lines.append(f"### {category}  ({cat_pass}/{cat_total} passing)")
         lines.append("")
-        lines.append(
-            "| Status | Capability | Method | Path | HTTP | Latency | Notes |"
-        )
-        lines.append(
-            "|--------|------------|--------|------|------|---------|-------|"
-        )
+        lines.append("| Status | Capability | Method | Path | HTTP | Latency | Notes |")
+        lines.append("|--------|------------|--------|------|------|---------|-------|")
         for row in rows:
             icon = _STATUS_ICON.get(row.status, row.status)
-            latency = (
-                f"{row.latency_ms:.0f}ms" if row.latency_ms is not None else "-"
-            )
+            latency = f"{row.latency_ms:.0f}ms" if row.latency_ms is not None else "-"
             http = row.http_status if row.http_status is not None else "-"
             notes = (row.error or row.notes or "").replace("|", "\\|")
             lines.append(
@@ -647,9 +641,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         prog="capability_matrix.py",
         description="Probe a running JARVIS instance and emit a capability matrix.",
     )
-    parser.add_argument(
-        "--base-url", default=DEFAULT_BASE_URL, help="JARVIS base URL"
-    )
+    parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="JARVIS base URL")
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT)
     parser.add_argument("--admin-user", default="admin")
     parser.add_argument("--admin-password", default="JarvisDev123!")
