@@ -14,7 +14,7 @@ import asyncio
 import os
 from typing import Any, AsyncGenerator, Dict, List
 from unittest.mock import AsyncMock
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 
@@ -23,7 +23,6 @@ from core.runtime.parallel_planner import ParallelMissionPlanner
 from core.runtime.result_merger import AgentOutput, MergedResult, ResultMerger
 from core.runtime.role_assigner import AgentRole, AgentRoleAssigner
 from core.runtime.supervisor import AgentSupervisor
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Fixtures
@@ -122,7 +121,8 @@ class TestE2EFullMissionFlow:
 
     @pytest.mark.asyncio
     async def test_parallel_mission_full_flow(
-        self, e2e_mission_env: Dict[str, Any],
+        self,
+        e2e_mission_env: Dict[str, Any],
     ) -> None:
         """Goal → Memory Recall → Decompose → Parallel Plan → Waves →
         Role Assign → Spawn → Supervisor → Conflict Resolve → Merge → Complete.
@@ -146,9 +146,17 @@ class TestE2EFullMissionFlow:
         assert len(steps) >= 3  # default plan has 3 steps
 
         # Verify memory recall was called BEFORE planning
-        mock_mem.recall.assert_called_once_with(
+        from core.memory.dto import RetrievalRequest
+
+        mock_mem.recall.assert_called_once()
+        recall_call = mock_mem.recall.call_args
+        recall_arg = recall_call[0][0]
+        assert isinstance(recall_arg, RetrievalRequest)
+        assert recall_arg.query == (
             "Research AI trends and implement a REST API with tests"
         )
+        assert recall_arg.max_chunks == 10
+        assert recall_arg.max_tokens == 1000
 
         # 3. Wait for the background execution loop to process
         await asyncio.sleep(0.3)
@@ -167,7 +175,8 @@ class TestE2EFullMissionFlow:
 
     @pytest.mark.asyncio
     async def test_role_assignment_in_parallel_flow(
-        self, e2e_mission_env: Dict[str, Any],
+        self,
+        e2e_mission_env: Dict[str, Any],
     ) -> None:
         """Verify role assignment happens during parallel execution."""
         mgr = e2e_mission_env["mission_mgr"]
@@ -189,13 +198,12 @@ class TestE2EFullMissionFlow:
                 roles_seen.add(role)
 
         # At least one task should have a non-general role assigned
-        assert len(roles_seen) >= 1, (
-            f"Expected role assignments, got: {roles_seen}"
-        )
+        assert len(roles_seen) >= 1, f"Expected role assignments, got: {roles_seen}"
 
     @pytest.mark.asyncio
     async def test_supervisor_tracks_wave_completion(
-        self, e2e_mission_env: Dict[str, Any],
+        self,
+        e2e_mission_env: Dict[str, Any],
     ) -> None:
         """Verify supervisor wave tracking during parallel execution."""
         mgr = e2e_mission_env["mission_mgr"]
@@ -216,17 +224,28 @@ class TestE2EFullMissionFlow:
 
     @pytest.mark.asyncio
     async def test_approval_gate_halts_parallel_wave(
-        self, e2e_mission_env: Dict[str, Any],
+        self,
+        e2e_mission_env: Dict[str, Any],
     ) -> None:
         """High-risk steps should pause the mission even in parallel mode."""
         mgr = e2e_mission_env["mission_mgr"]
 
         # Pre-computed plan with a destructive step
         dangerous_plan = [
-            {"step": 0, "description": "Research the database schema",
-             "estimated_cost": 0.05, "required_permissions": [], "executor": "llm"},
-            {"step": 1, "description": "Delete all old records from production",
-             "estimated_cost": 0.10, "required_permissions": [], "executor": "shell"},
+            {
+                "step": 0,
+                "description": "Research the database schema",
+                "estimated_cost": 0.05,
+                "required_permissions": [],
+                "executor": "llm",
+            },
+            {
+                "step": 1,
+                "description": "Delete all old records from production",
+                "estimated_cost": 0.10,
+                "required_permissions": [],
+                "executor": "shell",
+            },
         ]
 
         res = await mgr.create_mission(
@@ -240,6 +259,7 @@ class TestE2EFullMissionFlow:
 
         # Mission should be paused at WAITING_APPROVAL
         from sqlalchemy import select
+
         from core.runtime.mission_models import MissionModel
 
         async with e2e_mission_env["db_manager"].session() as session:
@@ -254,7 +274,8 @@ class TestE2EFullMissionFlow:
 
     @pytest.mark.asyncio
     async def test_sequential_fallback_without_parallel_planner(
-        self, e2e_mission_env: Dict[str, Any],
+        self,
+        e2e_mission_env: Dict[str, Any],
     ) -> None:
         """Without parallel_planner, mission runs sequentially (legacy path)."""
         mgr = e2e_mission_env["mission_mgr"]
@@ -318,11 +339,13 @@ class TestComponentIntegration:
 
         outputs = [
             AgentOutput(
-                agent_id="a1", role="research",
+                agent_id="a1",
+                role="research",
                 stdout="We should use PostgreSQL for data storage",
             ),
             AgentOutput(
-                agent_id="a2", role="coding",
+                agent_id="a2",
+                role="coding",
                 stdout="MongoDB is better for this use case",
             ),
         ]
@@ -332,10 +355,12 @@ class TestComponentIntegration:
         assert merged.success is True
 
         # Then check for conflicts
-        conflicts = resolver.detect_conflicts([
-            {"agent_id": o.agent_id, "role": o.role, "stdout": o.stdout}
-            for o in outputs
-        ])
+        conflicts = resolver.detect_conflicts(
+            [
+                {"agent_id": o.agent_id, "role": o.role, "stdout": o.stdout}
+                for o in outputs
+            ]
+        )
         assert len(conflicts) >= 1, "Should detect PostgreSQL vs MongoDB conflict"
 
     @pytest.mark.asyncio
@@ -427,7 +452,9 @@ class TestComponentIntegration:
                 aid = uuid4()
                 agent_ids.append(aid)
                 supervisor.register_agent_task(
-                    aid, {"goal": ws.description}, wave_index=wave.wave_index,
+                    aid,
+                    {"goal": ws.description},
+                    wave_index=wave.wave_index,
                 )
 
             # Simulate execution results
@@ -458,7 +485,9 @@ class TestComponentIntegration:
         # 3. Final mission merge
         final = merger.merge_mission_results(all_wave_results)
         assert final.success is True
-        assert "Research" in final.merged_output or "cloud" in final.merged_output.lower()
+        assert (
+            "Research" in final.merged_output or "cloud" in final.merged_output.lower()
+        )
         assert len(all_wave_results) >= 2  # At least 2 waves
 
 
@@ -473,7 +502,7 @@ class TestRepairEngineIntegration:
     @pytest.mark.asyncio
     async def test_dispatcher_invokes_repair_on_failure(self) -> None:
         """ToolDispatcher → RepairEngine.attempt_repair on failed execution."""
-        from core.reasoning.dispatcher import ToolDispatcher
+        from core.reasoning.dispatcher import BaseExecutor, ToolDispatcher
         from core.reasoning.reflection import ReflectionEngine
         from core.reasoning.repair_engine import RepairEngine
         from core.reasoning.task import ExecutorType, Task, TaskType
@@ -485,18 +514,19 @@ class TestRepairEngineIntegration:
         goal_id = uuid4()
         fail_count = 0
 
-        async def failing_executor(task: Any, ctx: Any) -> Any:
-            nonlocal fail_count
-            fail_count += 1
-            return ToolExecutionResult(
-                task_id=task.id,
-                status="ERROR",
-                stdout="",
-                stderr="Connection refused",
-            )
+        class FailingExecutor(BaseExecutor):
+            async def execute(self, task: Any, ctx: Any) -> Any:
+                nonlocal fail_count
+                fail_count += 1
+                return ToolExecutionResult(
+                    task_id=task.id,
+                    status="ERROR",
+                    stdout="",
+                    stderr="Connection refused",
+                )
 
         dispatcher = ToolDispatcher(
-            executors={ExecutorType.PYTHON: failing_executor},
+            executors={ExecutorType.PYTHON: FailingExecutor()},
             repair_engine=repair,
         )
 
@@ -507,9 +537,11 @@ class TestRepairEngineIntegration:
             task_type=TaskType.CODE,
         )
 
-        result = await dispatcher.dispatch(task, {})
         # RepairEngine should have been invoked (attempt_repair called)
-        # The result might still be ERROR if repair also fails (no tools available)
+        # The dispatch result might still be ERROR if repair also fails
+        # (no tools available), so we don't assert on it — we only assert
+        # that the failing executor was actually invoked.
+        await dispatcher.dispatch(task, {})
         assert fail_count >= 1
 
 
@@ -523,7 +555,8 @@ class TestMemoryRecallIntegration:
 
     @pytest.mark.asyncio
     async def test_memory_recall_called_before_decompose(
-        self, e2e_mission_env: Dict[str, Any],
+        self,
+        e2e_mission_env: Dict[str, Any],
     ) -> None:
         """Memory.recall() must fire before _decompose_goal()."""
         mgr = e2e_mission_env["mission_mgr"]
@@ -537,12 +570,22 @@ class TestMemoryRecallIntegration:
 
         await mgr.start_mission(mission_id)
 
-        # Memory recall should have been called with the goal
-        mock_mem.recall.assert_called_once_with("Analyze quarterly sales data")
+        # Memory recall should have been called with the goal as a
+        # RetrievalRequest carrying the goal as its query field.
+        from core.memory.dto import RetrievalRequest
+
+        mock_mem.recall.assert_called_once()
+        recall_call = mock_mem.recall.call_args
+        recall_arg = recall_call[0][0]
+        assert isinstance(recall_arg, RetrievalRequest)
+        assert recall_arg.query == "Analyze quarterly sales data"
+        assert recall_arg.max_chunks == 10
+        assert recall_arg.max_tokens == 1000
 
     @pytest.mark.asyncio
     async def test_mission_works_without_memory_orchestrator(
-        self, e2e_mission_env: Dict[str, Any],
+        self,
+        e2e_mission_env: Dict[str, Any],
     ) -> None:
         """Mission should still work if memory_orchestrator is None."""
         mgr = e2e_mission_env["mission_mgr"]
@@ -560,7 +603,8 @@ class TestMemoryRecallIntegration:
 
     @pytest.mark.asyncio
     async def test_memory_recall_failure_does_not_block(
-        self, e2e_mission_env: Dict[str, Any],
+        self,
+        e2e_mission_env: Dict[str, Any],
     ) -> None:
         """If memory.recall() raises, planning should still proceed."""
         mgr = e2e_mission_env["mission_mgr"]

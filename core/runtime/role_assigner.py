@@ -47,29 +47,74 @@ class RoleAssignment(BaseModel):
 
 _ROLE_KEYWORDS: Dict[AgentRole, List[str]] = {
     AgentRole.RESEARCH: [
-        "research", "search", "find", "gather", "investigate",
-        "analyze", "explore", "discover", "study", "survey",
+        "research",
+        "search",
+        "find",
+        "gather",
+        "investigate",
+        "analyze",
+        "explore",
+        "discover",
+        "study",
+        "survey",
     ],
     AgentRole.CODING: [
-        "code", "implement", "build", "develop", "program",
-        "create", "write code", "backend", "frontend", "api",
-        "function", "class", "module", "refactor",
+        "code",
+        "implement",
+        "build",
+        "develop",
+        "program",
+        "create",
+        "write code",
+        "backend",
+        "frontend",
+        "api",
+        "function",
+        "class",
+        "module",
+        "refactor",
     ],
     AgentRole.TESTING: [
-        "test", "verify", "validate", "check", "assert",
-        "unit test", "integration", "qa", "debug", "fix bug",
+        "test",
+        "verify",
+        "validate",
+        "check",
+        "assert",
+        "unit test",
+        "integration",
+        "qa",
+        "debug",
+        "fix bug",
     ],
     AgentRole.DOCUMENTATION: [
-        "document", "readme", "docstring", "comment", "explain",
-        "write doc", "specification", "guide", "tutorial",
+        "document",
+        "readme",
+        "docstring",
+        "comment",
+        "explain",
+        "write doc",
+        "specification",
+        "guide",
+        "tutorial",
     ],
     AgentRole.PLANNING: [
-        "plan", "design", "architect", "structure", "organize",
-        "decompose", "strategy", "roadmap",
+        "plan",
+        "design",
+        "architect",
+        "structure",
+        "organize",
+        "decompose",
+        "strategy",
+        "roadmap",
     ],
     AgentRole.REVIEW: [
-        "review", "audit", "inspect", "evaluate", "assess",
-        "feedback", "approve",
+        "review",
+        "audit",
+        "inspect",
+        "evaluate",
+        "assess",
+        "feedback",
+        "approve",
     ],
 }
 
@@ -102,19 +147,35 @@ class AgentRoleAssigner:
         self._llm_runtime = llm_runtime
 
     def classify_role(self, task_description: str) -> AgentRole:
-        """Determine the best role for a task based on its description."""
+        """Determine the best role for a task based on its description.
+
+        Tie-breaking: when multiple roles match with equal score, prefer the
+        role whose keyword appears EARLIEST in the description. This captures
+        intent — "Review the pull request code" is a review task, not a coding
+        task, because "review" precedes "code" in the input.
+        """
         desc_lower = task_description.lower()
         scores: Dict[AgentRole, int] = {role: 0 for role in AgentRole}
+        first_match_pos: Dict[AgentRole, int] = {
+            role: len(desc_lower) + 1 for role in AgentRole
+        }
 
         for role, keywords in _ROLE_KEYWORDS.items():
             for kw in keywords:
-                if kw in desc_lower:
+                pos = desc_lower.find(kw)
+                if pos != -1:
                     scores[role] += 1
+                    if pos < first_match_pos[role]:
+                        first_match_pos[role] = pos
 
-        best_role = max(scores, key=lambda r: scores[r])
-        if scores[best_role] == 0:
+        best_score = max(scores.values())
+        if best_score == 0:
             return AgentRole.GENERAL
 
+        # Among roles with the best score, pick the one whose first keyword
+        # appeared earliest in the description.
+        tied_roles = [r for r, s in scores.items() if s == best_score]
+        best_role = min(tied_roles, key=lambda r: first_match_pos[r])
         return best_role
 
     async def classify_role_llm(self, task_description: str) -> AgentRole:
@@ -209,8 +270,9 @@ class AgentRoleAssigner:
             if agent.get("status") == "OFFLINE":
                 continue
 
-            from core.runtime.dto import SwarmTask
             from uuid import uuid4
+
+            from core.runtime.dto import SwarmTask
 
             dummy_task = SwarmTask(
                 task_id=uuid4(),
