@@ -148,7 +148,14 @@ def create_app() -> FastAPI:
     app.include_router(users.router, prefix="/api/v1")
     app.include_router(agent.router, prefix="/api/v1")
     app.include_router(workflow.router, prefix="/api/v1")
-    app.include_router(skills.router, prefix="/api/v1")
+    # CR-002 (2026-07-10): skills.router is mounted under /api/v1/skills (not
+    # bare /api/v1). The previous bare-prefix mount caused the internal
+    # @router.get("/{skill_id}") catch-all to be registered at
+    # /api/v1/{skill_id}, which shadowed six single-segment top-level routes
+    # (missions, workflows, discover, skills, identity, goal). The Phase 14
+    # spec already documented the skills paths under /api/v1/skills/...; this
+    # brings the implementation in line with the spec.
+    app.include_router(skills.router, prefix="/api/v1/skills")
     app.include_router(capabilities.router, prefix="/api/v1")
     app.include_router(vault.router, prefix="/api/v1")
     app.include_router(sync.router, prefix="/api/v1")

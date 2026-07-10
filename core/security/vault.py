@@ -101,6 +101,17 @@ class VaultManager:
 
         return SecretsProxy(self)
 
+    def is_locked(self) -> bool:
+        """Return True if the vault is locked (no master key loaded).
+
+        Used by readiness / preflight / diagnostics checks. A vault is
+        considered locked when the master key has not been loaded into
+        memory yet (i.e. ``initialize()`` has not run, or failed before
+        loading the key). Once ``initialize()`` succeeds, ``_key`` is
+        populated and the vault is unlocked.
+        """
+        return self._key is None
+
     async def initialize(self) -> None:
         """Initialize vault. Load or generate the symmetric master key and load persisted secrets.
 

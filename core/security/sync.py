@@ -114,12 +114,18 @@ class SyncManager:
     async def _publish_event(self, topic: str, data: Dict[str, Any]) -> None:
         if self.event_bus:
             try:
+                # InterAgentMessage schema (core/interfaces.py) requires:
+                #   sender, receiver, action, body
+                # Earlier versions of this code used legacy field names
+                # (``target``, ``content``) which Pydantic now rejects with
+                # 3 validation errors on every sync event. Map the topic +
+                # payload to the canonical schema.
                 msg = InterAgentMessage(
                     id=uuid4(),
                     sender=f"sync_manager_{self.client_id}",
-                    target="*",
-                    content=data,
-                    timestamp=datetime.now(timezone.utc),
+                    receiver="*",
+                    action=topic,
+                    body=data,
                 )
                 await self.event_bus.publish(topic, msg)
             except Exception as e:

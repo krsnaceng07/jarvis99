@@ -104,8 +104,17 @@ class SwarmResumeManager(LifecycleInterface):
             task.metadata["_version"] = task_model.version
 
             if task_model.status in ["Running", "Claimed"]:
-                # Recovery timeout constraint: check if running long enough
-                elapsed = (now - task_model.updated_at).total_seconds()
+                # Recovery timeout constraint: check if running long enough.
+                # SQLite returns naive datetimes even when the column was
+                # written as UTC-aware, which would crash
+                # ``datetime - datetime`` with
+                # ``TypeError: can't subtract offset-naive and offset-aware
+                # datetimes``. Normalize the model's timestamp to UTC-aware
+                # before the subtraction so the comparison is always safe.
+                updated_at = task_model.updated_at
+                if updated_at is not None and updated_at.tzinfo is None:
+                    updated_at = updated_at.replace(tzinfo=timezone.utc)
+                elapsed = (now - updated_at).total_seconds()
                 if elapsed > self.recovery_timeout:
                     logger.info(
                         "Stale task %s detected (running for %.1fs > %.1fs)",

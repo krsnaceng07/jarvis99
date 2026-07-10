@@ -266,7 +266,9 @@ class Kernel(LifecycleInterface):
             version_manager = PlanVersionManager()
 
             from core.reasoning.decision_engine import DecisionEngine as _DecisionEngine
-            from core.reasoning.tool_selector import ToolSelectionEngine as _ToolSelectionEngine
+            from core.reasoning.tool_selector import (
+                ToolSelectionEngine as _ToolSelectionEngine,
+            )
             from core.tools.llm_runtime import LlmRuntime as _LlmRuntime
 
             engine_llm_runtime = _LlmRuntime(
@@ -308,6 +310,105 @@ class Kernel(LifecycleInterface):
                 ReasoningExecutionEngine, execution_engine
             )
 
+            # Phase 14 — Core Health Monitoring (CR-002 companion fix)
+            #
+            # HealthMonitor is the data source for GET /api/v1/health. The
+            # FastAPI dependency resolver in api/dependencies.py expects it
+            # to be registered as a singleton on the kernel container, but
+            # the registration was never added. This caused the health
+            # endpoint to return HTTP 500 with
+            #   "No service registered for interface 'HealthMonitor'"
+            # after the route-shadowing fix unblocked the route. Registering
+            # the singleton here completes the Phase 14 wiring that the spec
+            # already implied.
+            from core.health import HealthMonitor
+
+            health_monitor = HealthMonitor(
+                check_interval=float(getattr(settings, "HEALTH_CHECK_INTERVAL", 15.0))
+            )
+            self.container.register_singleton(HealthMonitor, health_monitor)
+            self.lifecycle_manager.add_service(health_monitor)
+
+            # Phase 18 — Skill & Capability Registries (CR-002 companion fix)
+            #
+            # The api/routes/skills.py routes depend on SkillRegistry, and
+            # api/routes/capabilities.py::/discover depends on
+            # CapabilityRegistry. Both classes already exist and the routes
+            # already use them, but neither was registered in the DI
+            # container — so every skills/capabilities probe returned 500
+            # with "No service registered for interface 'SkillRegistry'"
+            # (or CapabilityRegistry) after the route-shadowing fix
+            # un-shadowed those routes. This completes the Phase 18/41
+            # wiring the spec already implied.
+            from core.skills.capability_registry import CapabilityRegistry
+            from core.skills.registry import SkillRegistry
+
+            skill_registry = SkillRegistry()
+            self.container.register_singleton(SkillRegistry, skill_registry)
+
+            capability_registry = CapabilityRegistry()
+            self.container.register_singleton(CapabilityRegistry, capability_registry)
+
+            # Phase 18 — Skill Installer (CR-002 runtime-fix companion)
+            #
+            # POST /api/v1/skills/install and /skills/remove depend on
+            # SkillInstaller via api/routes/skills.py::_get_installer. The
+            # installer is the orchestrator that coordinates
+            # validator+repository+registry+sandbox+permission_engine+signer
+            # (per Phase 18 spec §4). All those components exist in
+            # core/skills/ but were never wired into the DI container, so
+            # the install/remove endpoints returned 500 with
+            # "No service registered for interface 'SkillInstaller'".
+            # Constructing + registering the full installer here completes
+            # the Phase 18 wiring.
+            from core.skills.installer import SkillInstaller
+            from core.skills.permission_engine import SkillPermissionEngine
+            from core.skills.repository import SkillRepository
+            from core.skills.sandbox import SandboxTestRunner
+            from core.skills.signer import SkillSigner
+            from core.skills.validator import SkillValidator
+
+            skill_validator = SkillValidator()
+            skill_repository = SkillRepository()
+            skill_sandbox_runner = SandboxTestRunner()
+            skill_signer = SkillSigner()
+            skill_permission_engine = SkillPermissionEngine(
+                gatekeeper=gatekeeper,  # registered above (line ~296)
+                event_bus=event_bus,
+            )
+            skill_installer = SkillInstaller(
+                validator=skill_validator,
+                repository=skill_repository,
+                registry=skill_registry,
+                sandbox_runner=skill_sandbox_runner,
+                permission_engine=skill_permission_engine,
+                signer=skill_signer,
+                event_bus=event_bus,
+            )
+
+            self.container.register_singleton(SkillValidator, skill_validator)
+            self.container.register_singleton(SkillRepository, skill_repository)
+            self.container.register_singleton(SandboxTestRunner, skill_sandbox_runner)
+            self.container.register_singleton(SkillSigner, skill_signer)
+            self.container.register_singleton(
+                SkillPermissionEngine, skill_permission_engine
+            )
+            self.container.register_singleton(SkillInstaller, skill_installer)
+
+            # Phase 42 — Identity & Goal Service (CR-002 companion fix)
+            #
+            # api/routes/goal.py depends on GoalService via get_goal_service.
+            # The class already exists in core/reasoning/goal.py (frozen),
+            # but the kernel never registered it. After the route-shadowing
+            # fix un-shadowed /api/v1/goal, the route returned 500 with
+            # "No service registered for interface 'GoalService'". CR-001
+            # registered GoalScheduler; this registers the GoalService that
+            # the goal REST routes actually depend on.
+            from core.reasoning.goal import GoalService
+
+            goal_service = GoalService(event_bus=event_bus)
+            self.container.register_singleton(GoalService, goal_service)
+
             # Phase 13 — Workflow Automation services
             from core.tools.compiler import WorkflowCompiler
             from core.tools.repository import WorkflowRepository
@@ -348,8 +449,10 @@ class Kernel(LifecycleInterface):
                     models as _observability_models,  # noqa: F401
                 )
                 from core.runtime import (
-                    persistence_models as _persistence_models,  # noqa: F401
                     mission_models as _mission_models,  # noqa: F401
+                )
+                from core.runtime import (
+                    persistence_models as _persistence_models,  # noqa: F401
                 )
                 from core.tools import (
                     execution_models as _execution_models,  # noqa: F401
@@ -401,9 +504,8 @@ class Kernel(LifecycleInterface):
             from core.reasoning.dispatcher import LlmExecutor
             from core.reasoning.repair_engine import RepairEngine
             from core.reasoning.task import ExecutorType
-            from core.tools.llm_runtime import LlmRuntime
-
             from core.reasoning.tool_selector import ToolSelectionEngine
+            from core.tools.llm_runtime import LlmRuntime
 
             swarm_llm_runtime = LlmRuntime(
                 provider=claude_prov,
@@ -627,8 +729,8 @@ class Kernel(LifecycleInterface):
             # Phase 32 — Platform Administration & Operations
             try:
                 from core.runtime.admin import AdminManager
-                from core.security.vault import VaultManager
                 from core.runtime.orchestrator import SwarmOrchestrator
+                from core.security.vault import VaultManager
 
                 vault_mgr = self.container.resolve(VaultManager)
                 orchestrator = self.container.resolve(SwarmOrchestrator)
@@ -663,7 +765,8 @@ class Kernel(LifecycleInterface):
                 self.lifecycle_manager.add_service(health_mgr)
             except Exception as e:
                 logger.warning(
-                    "DeploymentHealthManager registration skipped during boot: %s", str(e)
+                    "DeploymentHealthManager registration skipped during boot: %s",
+                    str(e),
                 )
 
             # Phase 34 — Platform Autonomous Mission Engine & Long-Running Agents
@@ -724,7 +827,9 @@ class Kernel(LifecycleInterface):
                 decision_engine = DecisionEngine(settings=settings)
                 reasoning_engine = ReasoningEngine(model_router=cog_model_router)
                 planning_engine = PlanningEngine(model_router=cog_model_router)
-                reflection_engine = CognitiveReflectionEngine(model_router=cog_model_router)
+                reflection_engine = CognitiveReflectionEngine(
+                    model_router=cog_model_router
+                )
                 learning_engine = LearningEngine(settings=settings)
 
                 neural_layer = NeuralLayer(
@@ -747,10 +852,14 @@ class Kernel(LifecycleInterface):
                 self.container.register_singleton(CognitiveState, brain_state)
                 self.container.register_singleton(BrainContext, brain_context)
                 self.container.register_singleton(DecisionEngine, decision_engine)
-                self.container.register_singleton(CognitiveModelRouter, cog_model_router)
+                self.container.register_singleton(
+                    CognitiveModelRouter, cog_model_router
+                )
                 self.container.register_singleton(ReasoningEngine, reasoning_engine)
                 self.container.register_singleton(PlanningEngine, planning_engine)
-                self.container.register_singleton(CognitiveReflectionEngine, reflection_engine)
+                self.container.register_singleton(
+                    CognitiveReflectionEngine, reflection_engine
+                )
                 self.container.register_singleton(LearningEngine, learning_engine)
                 self.container.register_singleton(NeuralLayer, neural_layer)
                 self.container.register_singleton(BrainKernel, brain_kernel)
@@ -758,26 +867,27 @@ class Kernel(LifecycleInterface):
                 # Post-hoc attach MissionManager (registered earlier, before BrainKernel)
                 try:
                     from core.runtime.mission import MissionManager as _MM
+
                     brain_kernel.mission_manager = self.container.resolve(_MM)
                 except Exception:
                     pass
             except Exception as e:
-                logger.warning("BrainKernel registration skipped during boot: %s", str(e))
+                logger.warning(
+                    "BrainKernel registration skipped during boot: %s", str(e)
+                )
 
             # Phase 19 M7 — Memory Orchestrator (sole entry point)
             try:
+                from core.config import MemoryRetentionConfig
+                from core.memory.embeddings import (
+                    CachedEmbeddingGenerator,
+                    SemanticEmbeddingGenerator,
+                )
                 from core.memory.memory_repository import InMemoryRecordRepository
                 from core.memory.orchestrator import MemoryOrchestrator
                 from core.memory.retention import RetentionEngine
                 from core.memory.retrieval_engine import RetrievalEngine
                 from core.memory.scoring import ScoringEngine
-
-                from core.config import MemoryRetentionConfig
-
-                from core.memory.embeddings import (
-                    CachedEmbeddingGenerator,
-                    SemanticEmbeddingGenerator,
-                )
                 from core.memory.vector_index import (
                     MemoryVectorIndex,
                     VectorCandidateProvider,
@@ -807,7 +917,8 @@ class Kernel(LifecycleInterface):
                 )
 
                 retrieval_engine = RetrievalEngine(
-                    memory_repo, scoring_engine,
+                    memory_repo,
+                    scoring_engine,
                     candidate_provider=vector_candidate,
                 )
                 memory_orchestrator = MemoryOrchestrator(
@@ -824,10 +935,13 @@ class Kernel(LifecycleInterface):
                 self.container.register_singleton(ScoringEngine, scoring_engine)
                 self.container.register_singleton(RetentionEngine, retention_engine)
                 self.container.register_singleton(RetrievalEngine, retrieval_engine)
-                self.container.register_singleton(MemoryOrchestrator, memory_orchestrator)
+                self.container.register_singleton(
+                    MemoryOrchestrator, memory_orchestrator
+                )
 
                 try:
                     from core.runtime.brain_kernel import BrainKernel as _BK2
+
                     _bk2 = self.container.resolve(_BK2)
                     _bk2.memory_orchestrator = memory_orchestrator
                 except Exception:
@@ -840,7 +954,9 @@ class Kernel(LifecycleInterface):
                 except Exception:
                     pass
             except Exception as e:
-                logger.warning("MemoryOrchestrator registration skipped during boot: %s", str(e))
+                logger.warning(
+                    "MemoryOrchestrator registration skipped during boot: %s", str(e)
+                )
 
             # Phase 38 — Unified Memory & Knowledge Graph
             try:
@@ -874,6 +990,7 @@ class Kernel(LifecycleInterface):
                 _memory_orch = None
                 try:
                     from core.memory.orchestrator import MemoryOrchestrator as _MO
+
                     _memory_orch = self.container.resolve(_MO)
                 except Exception:
                     pass
@@ -899,7 +1016,9 @@ class Kernel(LifecycleInterface):
                 self.container.register_singleton(ProceduralMemory, procedural_mem)
                 self.container.register_singleton(MemoryCoordinator, memory_coordinator)
                 self.container.register_singleton(ContextAssembly, context_assembler)
-                self.container.register_singleton(MemoryConsolidation, memory_consolidation)
+                self.container.register_singleton(
+                    MemoryConsolidation, memory_consolidation
+                )
                 # Phase 19 — Memory event subscribers
                 try:
                     from core.memory.event_handler import MemoryEventHandler
@@ -909,11 +1028,15 @@ class Kernel(LifecycleInterface):
                         working_memory=working_mem,
                     )
                     await mem_event_handler.initialize()
-                    self.container.register_singleton(MemoryEventHandler, mem_event_handler)
+                    self.container.register_singleton(
+                        MemoryEventHandler, mem_event_handler
+                    )
                 except Exception as _meh_err:
                     logger.debug("MemoryEventHandler skipped: %s", _meh_err)
             except Exception as e:
-                logger.warning("Phase 38 memory registration skipped during boot: %s", str(e))
+                logger.warning(
+                    "Phase 38 memory registration skipped during boot: %s", str(e)
+                )
 
             # Phase 38 — Identity service post-hoc wiring
             try:
@@ -938,7 +1061,9 @@ class Kernel(LifecycleInterface):
                 self.container.register_singleton(IdentityService, identity_service)
                 brain_kernel.identity_service = identity_service
             except Exception as e:
-                logger.warning("IdentityService registration skipped during boot: %s", str(e))
+                logger.warning(
+                    "IdentityService registration skipped during boot: %s", str(e)
+                )
 
             # 3. Add kernel to lifecycle list (or configure dependency tree)
             self.lifecycle_manager.add_service(self)
