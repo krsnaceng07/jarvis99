@@ -1,10 +1,10 @@
 # 106_PHASE_44_MISSION_SCHEDULER_SPECIFICATION.md
 
 ## Status
-**STATUS:** FROZEN (2026-07-06)
+**STATUS:** FROZEN (2026-07-06, v1.1 per CR-001 on 2026-07-10)
 **Authority:** Rank 4 (Phase Specification)
 **Dependencies:** Phase 43 (Goal Engine)
-**Date:** 2026-07-06
+**Date:** 2026-07-06 (v1.1: 2026-07-10)
 **Tests at freeze:** 71 (1367 total)
 
 ---
@@ -41,6 +41,31 @@ To run complex multi-step objectives autonomously, JARVIS OS needs a Mission and
             ▼ (Submits wave tasks)
       Workflow Engine / Event Bus / Unified Memory
 ```
+
+### 2.1 DI Registration (added by CR-001, v1.1, 2026-07-10)
+
+`GoalScheduler` is the top-level orchestrator of the Mission Scheduler subsystem.
+It **must** be registered as a singleton in the kernel dependency container at
+boot time so that `api/dependencies.py:get_goal_scheduler()` can resolve it for
+all `/api/v1/scheduler/*` REST routes.
+
+Registration contract:
+
+- Implemented in `core/kernel.py::Kernel.boot()` after the Phase 36 Swarm block
+  and before the Phase 27 Observability block.
+- The instantiation is wrapped in `try/except Exception → logger.warning(...)`
+  so that a Phase 44 init failure (e.g. missing optional dependency) does not
+  block kernel boot — the rest of JARVIS stays up, and the route surfaces the
+  standard `SYSTEM_001` 500 until the wiring is repaired.
+- Constructor signature: `GoalScheduler(config=None, event_bus=event_bus, executor=None)`.
+  All constructor parameters are optional. When `event_bus` is provided it must
+  be the same `EventBusInterface` instance already registered in the container.
+  Internally, `GoalScheduler` constructs its own `MissionQueue`,
+  `GoalDependencyResolver`, `PriorityEngine`, `ExecutionBudgetManager`,
+  `DeadlineManager`, and `MissionRecovery` — these are not injected from
+  outside the class.
+- `GoalScheduler` does not implement `LifecycleInterface`; do **not** register
+  it with `lifecycle_manager.add_service(...)`.
 
 ---
 

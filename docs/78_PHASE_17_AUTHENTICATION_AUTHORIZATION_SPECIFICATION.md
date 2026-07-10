@@ -4,10 +4,10 @@
 This document establishes the architecture specification for **Phase 17: Authentication, Authorization & API Security**. It secures the API Gateway (Phase 14) and Persistent Execution layer (Phase 15) by introducing JWT Bearer and API Key authentication services, a fine-grained role-and-permission-based access control (RBAC/PBAC) model, request-identity context propagation, token revocation, rate limiting, and security telemetry auditing.
 
 ## Status
-**STATUS:** FROZEN (288 passed)  
-**Authority:** Rank 4 (Phase Specification)  
-**Dependencies:** Phases 1–16  
-**Freeze Date:** 2026-06-30  
+**STATUS:** FROZEN (v1.0: 2026-06-30, 288 passed; v1.1 per CR-001 on 2026-07-10)
+**Authority:** Rank 4 (Phase Specification)
+**Dependencies:** Phases 1–16
+**Freeze Date:** 2026-06-30 (v1.1: 2026-07-10)
 **Approved by:** Architecture Gatekeeper after full quality gate verification.
 
 ---
@@ -273,6 +273,7 @@ Broadcaster publishes telemetry events to EventBus upon key lifecycles:
 | CR | Date | Summary | Scope | Approved by |
 |----|------|---------|-------|-------------|
 | CR-017-001 | 2026-06-30 | Gateway lifespan calls `kernel.boot()` so security services register at startup; SQLite dev schema auto-materialization; `JarvisError` re-raise in `db_manager.session()` preserves 401 auth failures; agent/workflow routes protected via `require_permissions`; auth + users routers mounted | `api/main.py`, `api/routes/*`, `core/kernel.py`, `core/memory/database.py` | Architect (Rank 0) |
+| CR-001 | 2026-07-10 | Add `skill.read` to the default permission scope seed in `core/security/seed_service.py`. Required by the Phase 41 Capability Registry which guards `/api/v1/discover` (and any future read-gated skill routes) with `_require_read = require_permissions(["skill.read"])`. Admin role inherits the new scope automatically on next boot. Existing tokens issued before this change must be re-issued to obtain the new permission claim. | `core/security/seed_service.py` | Architect (Rank 0) |
 
 ---
 
