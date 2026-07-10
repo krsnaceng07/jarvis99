@@ -50,6 +50,7 @@ class SecuritySeedService:
             "audit.read",
             "vault.admin",
             "platform.admin",
+            "skill.read",  # Phase 41 Capability Registry read (CR-001)
         ]
         permissions_map = {}
         for scope in scopes:

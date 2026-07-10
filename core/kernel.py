@@ -493,6 +493,15 @@ class Kernel(LifecycleInterface):
             self.container.register_singleton(AgentSupervisor, agent_supervisor)
             self.container.register_singleton(DeadlockDetector, deadlock_detector)
 
+            # Phase 44 — Mission & Autonomous Goal Scheduler (CR-001)
+            try:
+                from core.mission.mission_scheduler import GoalScheduler
+
+                goal_scheduler = GoalScheduler(event_bus=event_bus)
+                self.container.register_singleton(GoalScheduler, goal_scheduler)
+            except Exception as e:
+                logger.warning("Phase 44 GoalScheduler registration failed: %s", str(e))
+
             # Phase 27 — Observability, Cost Governance & Live Execution Streaming
             from core.observability.broadcaster_interface import (
                 BaseTelemetryBroadcaster,
