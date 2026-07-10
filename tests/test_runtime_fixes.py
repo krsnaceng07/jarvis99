@@ -241,12 +241,12 @@ def test_swarm_resume_manager_handles_naive_updated_at() -> None:
             def session(self) -> _FakeSession:
                 return _FakeSession()
 
-        original = rm_mod.db_manager
-        rm_mod.db_manager = _FakeDBManager()  # type: ignore[assignment]
+        original = rm_mod.db_manager  # type: ignore[attr-defined]
+        rm_mod.db_manager = _FakeDBManager()  # type: ignore[attr-defined, assignment]
         try:
             await mgr.recover_all()
         finally:
-            rm_mod.db_manager = original
+            rm_mod.db_manager = original  # type: ignore[attr-defined]
 
     # If the fix is in place, this completes without TypeError.
     asyncio.run(_run())
@@ -330,12 +330,12 @@ def test_swarm_resume_manager_handles_aware_updated_at() -> None:
             def session(self) -> _FakeSession:
                 return _FakeSession()
 
-        original = rm_mod.db_manager
-        rm_mod.db_manager = _FakeDBManager()  # type: ignore[assignment]
+        original = rm_mod.db_manager  # type: ignore[attr-defined]
+        rm_mod.db_manager = _FakeDBManager()  # type: ignore[attr-defined, assignment]
         try:
             await mgr.recover_all()
         finally:
-            rm_mod.db_manager = original
+            rm_mod.db_manager = original  # type: ignore[attr-defined]
 
     asyncio.run(_run())
 

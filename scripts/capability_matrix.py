@@ -202,7 +202,7 @@ class ProbeRunner:
                     or data.get("access_token")
                 )
                 self._token = token
-                return token
+                return str(token) if token is not None else None
         except Exception:
             return None
         finally:
