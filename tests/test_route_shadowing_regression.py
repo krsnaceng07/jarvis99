@@ -1,5 +1,12 @@
 """
-CR-002 regression test — locks down the skills-router mount point.
+Regression test — locks down the skills-router mount point.
+
+The CR (Change Request) that documented and fixed this bug is identified
+by the slug ``skills-router-mount-shadowing`` (see ``CR_SLUG`` below).
+The CR is *not* referenced by number here: future renumbering is
+expected, and the regression test must remain green regardless of what
+number the CR is assigned next. If you ever find yourself typing
+"CR-NNN" into this file, stop — use ``CR_SLUG`` instead.
 
 Bug history: 2026-07-10 — `skills.router` was mounted at `prefix="/api/v1"`,
 causing the internal `@router.get("/{skill_id}")` catch-all to become
@@ -57,6 +64,13 @@ EXPECTED_SKILLS_PATHS = {
     ],
 }
 
+# Stable identifier for the CR (Change Request) that documented and
+# fixed this bug. NEVER hardcode a CR number anywhere in this file —
+# use this slug and the helpers below. CRs get renumbered; the slug
+# is the durable contract.
+CR_SLUG = "skills-router-mount-shadowing"
+_CR_LABEL = f"CR({CR_SLUG})"
+
 # What the line in api/main.py MUST contain for the fix to hold.
 # We assert this with a text-level scan rather than booting the app
 # so the test stays fast and hermetic.
@@ -69,6 +83,17 @@ PRODUCTION_MOUNT_FORBIDDEN_FRAGMENT = (
 )
 
 _API_MAIN_PATH = Path("api/main.py")
+_CR_DIR = Path("docs/CR")
+
+
+def _cr_doc_files() -> list[Path]:
+    """Return all CR docs in ``docs/CR/`` whose filename carries the
+    ``CR_SLUG``. The list is sorted lexicographically so a future
+    second-CR-for-the-same-bug case is deterministic (lowest name
+    first). The tests in this module only ever look at the first
+    match.
+    """
+    return sorted(_CR_DIR.glob(f"CR-*-{CR_SLUG}.md"))
 
 
 def _read_api_main_source() -> str:
@@ -84,16 +109,16 @@ def test_production_skills_mount_uses_correct_prefix() -> None:
     """
     source = _read_api_main_source()
     assert PRODUCTION_MOUNT_REQUIRED_FRAGMENT in source, (
-        f"CR-002 regression: api/main.py no longer mounts the skills "
+        f"{_CR_LABEL} regression: api/main.py no longer mounts the skills "
         f"router at prefix='/api/v1/skills'. "
         f"Expected literal line: {PRODUCTION_MOUNT_REQUIRED_FRAGMENT!r}. "
-        f"This is the route-shadowing bug CR-002 fixed; restoring "
+        f"This is the route-shadowing bug {_CR_LABEL} fixed; restoring "
         f"the old prefix will re-shadow /api/v1/missions, /api/v1/"
         f"workflows, /api/v1/discover, /api/v1/skills, /api/v1/"
         f"identity, and /api/v1/goal."
     )
     assert PRODUCTION_MOUNT_FORBIDDEN_FRAGMENT not in source, (
-        f"CR-002 regression: api/main.py contains the historic buggy "
+        f"{_CR_LABEL} regression: api/main.py contains the historic buggy "
         f"mount {PRODUCTION_MOUNT_FORBIDDEN_FRAGMENT!r}. Remove it; "
         f"the correct line is {PRODUCTION_MOUNT_REQUIRED_FRAGMENT!r}."
     )
@@ -121,7 +146,7 @@ def test_no_root_level_skill_catchall_route_exists() -> None:
     for router_name, _, prefix in mounts:
         if router_name == "skills.router":
             assert prefix == "/api/v1/skills", (
-                f"CR-002 regression: skills.router mounted at "
+                f"{_CR_LABEL} regression: skills.router mounted at "
                 f"prefix={prefix!r}, expected '/api/v1/skills'."
             )
 
@@ -159,7 +184,7 @@ def test_skills_router_internal_paths_match_spec() -> None:
     for method, paths in expected_internal.items():
         missing = paths - declared[method]
         assert not missing, (
-            f"CR-002 regression: skills router is missing expected "
+            f"{_CR_LABEL} regression: skills router is missing expected "
             f"{method} routes: {sorted(missing)}. Declared "
             f"{method} paths: {sorted(declared[method])}."
         )
@@ -175,9 +200,9 @@ def test_skills_router_has_no_bare_root_catchall() -> None:
     for route in skills_router.routes:
         typed_route = cast(StarletteRoute, route)
         assert typed_route.path != "", (
-            "CR-002 regression: skills router has a route at the "
-            "empty path '' — this would catch every request not "
-            "matched by other routers and re-introduce shadowing."
+            f"{_CR_LABEL} regression: skills router has a route at the "
+            f"empty path '' — this would catch every request not "
+            f"matched by other routers and re-introduce shadowing."
         )
 
 
@@ -186,19 +211,23 @@ def test_skills_router_has_no_bare_root_catchall() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_cr002_doc_references_the_bug() -> None:
-    """The CR-002 doc must exist and reference the historic bug,
-    so future maintainers understand why this regression test exists.
+def test_cr_doc_references_the_bug() -> None:
+    """A CR doc with the ``CR_SLUG`` must exist and reference the
+    historic bug, so future maintainers understand why this
+    regression test exists. The doc is looked up by *slug*, not by
+    CR number — see ``_cr_doc_files``.
     """
-    cr002 = Path("docs/CR/CR-002-skills-router-mount-shadowing.md")
-    assert cr002.exists(), (
-        f"CR-002 doc missing at {cr002}. The regression test above "
-        f"references the doc; please keep them in sync."
+    cr_files = _cr_doc_files()
+    assert cr_files, (
+        f"No CR doc found in {_CR_DIR} matching pattern "
+        f"'CR-*-{CR_SLUG}.md'. The regression tests in this module "
+        f"reference the doc; please create one or update CR_SLUG."
     )
-    content = cr002.read_text(encoding="utf-8")
+    cr_doc = cr_files[0]
+    content = cr_doc.read_text(encoding="utf-8")
     assert "route-shadowing" in content.lower(), (
-        "CR-002 doc must mention 'route-shadowing' so its purpose is "
-        "discoverable from the doc itself."
+        f"{cr_doc.name} must mention 'route-shadowing' so its purpose "
+        f"is discoverable from the doc itself."
     )
 
 
