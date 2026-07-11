@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from core.interfaces import AsyncSessionFactory
 from core.skills.dto import SkillMetadata
 from core.skills.models import (
     InstalledSkillModel,
@@ -41,9 +42,10 @@ class SkillRepository:
     explicitly to participate in an outer transaction.
     """
 
-    def __init__(self, db_manager: Optional[object] = None) -> None:
-        # Type kept loose (object) to avoid an import cycle with core.memory.
-        # db_manager must expose ``session()`` as an async context manager.
+    def __init__(self, db_manager: Optional[AsyncSessionFactory] = None) -> None:
+        # ``db_manager`` is typed as the AsyncSessionFactory Protocol
+        # (core.interfaces) so a mis-typed factory is caught by mypy at
+        # construction time, without coupling to core.memory (no import cycle).
         self._db_manager = db_manager
 
     @asynccontextmanager
@@ -53,8 +55,11 @@ class SkillRepository:
         """Yield the caller's session or open a short-lived one.
 
         When the repository opens its own session, the operation is committed
-        on clean exit and rolled back on exception — matching the FastAPI
-        dependency pattern in ``api.dependencies.get_db_session``.
+        on clean exit and rolled back on any exception (including
+        :class:`asyncio.CancelledError`, which is ``BaseException``-derived in
+        Python 3.8+ and is therefore not caught by the plain ``except
+        Exception`` clause). Cancellation is logged at DEBUG to aid debugging
+        of aborted background operations.
         """
         if session is not None:
             yield session
@@ -64,12 +69,21 @@ class SkillRepository:
                 "SkillRepository requires either an explicit AsyncSession or "
                 "a bound db_manager (passed at construction time)."
             )
-        async with self._db_manager.session() as s:  # type: ignore[attr-defined]
+        async with self._db_manager.session() as s:
             try:
                 yield s
                 await s.commit()
             except Exception:
                 await s.rollback()
+                raise
+            except BaseException as cancel_exc:  # CancelledError, KeyboardInterrupt
+                await s.rollback()
+                import logging
+
+                _logger = logging.getLogger("jarvis.core.skills.repository")
+                _logger.debug(
+                    "SkillRepository._scoped_session cancelled: %s", cancel_exc
+                )
                 raise
 
     async def save_installed_skill(

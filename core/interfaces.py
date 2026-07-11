@@ -4,11 +4,13 @@ Provides abstract base classes for subsystem lifecycles and event bus contracts.
 """
 
 from abc import ABC, abstractmethod
+from contextlib import AbstractAsyncContextManager
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Dict
+from typing import Any, Awaitable, Callable, Dict, Protocol
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class InterAgentMessage(BaseModel):
@@ -101,3 +103,23 @@ class EventBusInterface(LifecycleInterface, ABC):
             JarvisSystemError: If the subscription fails.
         """
         pass
+
+
+class AsyncSessionFactory(Protocol):
+    """Structural type for any object that yields an :class:`AsyncSession` as an
+    async context manager.
+
+    Implemented by :class:`core.memory.database.DatabaseSessionManager` and any
+    test/mock that wants to satisfy the same contract. Used by repositories
+    that need to open short-lived sessions internally (e.g. ``SkillRepository``
+    when called from background jobs, the installer, or CLI flows that do not
+    own a request-scoped session).
+
+    A repository that accepts ``db_manager: AsyncSessionFactory`` at
+    construction time can later open its own session via
+    ``async with db_manager.session() as s: ...`` without importing
+    ``core.memory`` (the previous "loose ``object``" type was used to dodge
+    an import cycle; this Protocol replaces it with a real type contract).
+    """
+
+    def session(self) -> AbstractAsyncContextManager[AsyncSession]: ...

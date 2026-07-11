@@ -707,6 +707,7 @@ To ensure forward/backward compatibility across hundreds of skills, Phase 18 fre
 | `SKILL_S002` | Unsigned package rejected |
 | `SKILL_I001` | Install rollback triggered |
 | `SKILL_I002` | Skill already installed (use `force`) |
+| `SKILL_I008` | Skill package not found at expected path (route pre-check) |
 | `SKILL_P001` | Insufficient approval level |
 
 ---

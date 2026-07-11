@@ -46,15 +46,28 @@ def _docker_is_available() -> bool:
     to auto-select between container and process isolation at boot time so a
     missing Docker daemon (dev / CI without Docker) doesn't break the install
     path — the existing ``ProcessSandboxRunner`` is the documented fallback.
+
+    The two ``except`` blocks intentionally separate "Docker SDK not installed"
+    (``ImportError`` / ``ModuleNotFoundError``) from "SDK installed but daemon
+    unreachable" (``OSError`` / ``ConnectionError``). Programmer errors
+    (``AttributeError`` / ``TypeError``) propagate so a real bug in the probe
+    code is not silently swallowed as "Docker unavailable".
     """
     try:
         import docker  # type: ignore[import-not-found]
-
+    except (ImportError, ModuleNotFoundError) as exc:
+        logger.debug(
+            "Docker SDK not importable; falling back to process isolation: %s", exc
+        )
+        return False
+    try:
         client = docker.from_env()
         client.ping()
         return True
-    except Exception as exc:  # noqa: BLE001 - probe must never raise
-        logger.debug("Docker probe failed; falling back to process isolation: %s", exc)
+    except (OSError, ConnectionError) as exc:
+        logger.debug(
+            "Docker daemon unreachable; falling back to process isolation: %s", exc
+        )
         return False
 
 
@@ -171,6 +184,39 @@ class SandboxTestRunner:
         *,
         enforce_container_isolation: bool | None = None,
     ) -> None:
+        """Construct a ``SandboxTestRunner``.
+
+        Args:
+            runners: Explicit list of ``SandboxRunner`` instances. When
+                provided, auto-detection is skipped and ``runners`` is used
+                as-is. When ``None``, the constructor probes Docker via
+                :func:`_docker_is_available` and builds a default list
+                (``[Container, Process]`` if Docker is reachable,
+                ``[Process]`` otherwise).
+            enforce_container_isolation: Whether manifests requesting a
+                non-container isolation mode should be rejected.
+
+                **Default-by-availability** (only when ``runners is None``):
+
+                * ``True`` if Docker is reachable (production posture:
+                  manifests requesting non-container isolation are rejected).
+                * ``False`` if Docker is NOT reachable (dev posture: the
+                  process runner transparently serves a manifest that
+                  requests container isolation, so the install path stays
+                  healthy without Docker).
+
+                When ``runners`` is supplied explicitly, the default falls
+                back to ``True`` (no probe is run, callers are presumed to
+                know what they want).
+
+                Per the project's "second consumer before abstraction" rule
+                (see CR-004 §3.7), the factory-method split
+                (``SandboxTestRunner.auto()`` / ``.explicit()``) was
+                considered and **rejected** because there is currently
+                only one consumer of this class (the install route); the
+                default-by-availability rule is now documented in this
+                docstring instead, keeping the call site clean.
+        """
         if runners is None:
             # Auto-detect path. Explicit args (runners or enforce_*) preserve
             # the previous contract — this branch is purely additive.

@@ -131,6 +131,13 @@ class Settings(BaseSettings):
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
     federation: FederationConfig = Field(default_factory=FederationConfig)
 
+    # Top-level skill-system paths. The default "skills" matches the
+    # CWD-relative convention used by api/routes/skills.py and the
+    # ToolRegistry boot path (core.kernel:175) so dev environments work
+    # out of the box. Production deployments can override via
+    # ``JARVIS_SKILLS_DIR`` (env) or the ``SKILLS_DIR`` yaml key.
+    skills_dir: str = Field(default="skills")
+
     model_config = SettingsConfigDict(
         env_prefix="JARVIS_",
         env_nested_delimiter="__",

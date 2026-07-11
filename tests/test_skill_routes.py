@@ -297,3 +297,60 @@ class TestRoutesModule:
                 parts = set(node.module.split("."))
                 overlap = parts & forbidden
                 assert not overlap, f"Forbidden direct import: {node.module}"
+
+
+# ---------------------------------------------------------------------------
+# CR-004 polish tests (3.4 JARVIS_SKILLS_DIR env override)
+# ---------------------------------------------------------------------------
+
+
+def test_get_skills_root_reads_jarvis_skills_dir_env(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """CR-004 §3.4: the route honors the ``JARVIS_SKILLS_DIR`` env override.
+
+    Pre-fix, ``_SKILLS_ROOT = Path("skills")`` was hardcoded at module
+    import time — a process whose CWD was not the repo root (e.g.
+    ``uvicorn`` launched from ``/etc/jarvis/``) could not find skill
+    packages. The fix resolves the path via ``Settings.skills_dir``
+    (Pydantic ``env_prefix="JARVIS_"`` → ``JARVIS_SKILLS_DIR``).
+
+    This test exercises the override path without depending on the
+    module-level ``_SKILLS_ROOT`` constant (which is computed at import
+    time); it asserts that the resolver function reads the env var on
+    a fresh cache clear.
+    """
+    from api.routes.skills import _get_skills_root
+
+    override_path = tmp_path / "production_skills"
+    monkeypatch.setenv("JARVIS_SKILLS_DIR", str(override_path))
+    # The lru_cache must be cleared so the new env var is read on
+    # next access.
+    _get_skills_root.cache_clear()
+    try:
+        resolved = _get_skills_root()
+        assert resolved == override_path
+    finally:
+        _get_skills_root.cache_clear()
+
+
+def test_get_skills_root_default_is_cwd_relative(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CR-004 §3.4: the default value of ``skills_dir`` is ``"skills"``.
+
+    When ``JARVIS_SKILLS_DIR`` is unset (or empty), the resolver
+    returns the CWD-relative default to preserve dev parity with the
+    pre-fix behavior. The default lives on the Pydantic ``Settings``
+    model — this test verifies the env-override path leaves the
+    default alone when the env var is removed.
+    """
+    from api.routes.skills import _get_skills_root
+
+    monkeypatch.delenv("JARVIS_SKILLS_DIR", raising=False)
+    _get_skills_root.cache_clear()
+    try:
+        resolved = _get_skills_root()
+        assert resolved == Path("skills")
+    finally:
+        _get_skills_root.cache_clear()

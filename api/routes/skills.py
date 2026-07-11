@@ -16,6 +16,7 @@ Contracts come only from Phase Specification.
 
 import shutil
 import zipfile
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -23,6 +24,7 @@ from fastapi.responses import JSONResponse
 
 from api.dependencies import get_kernel, require_permissions
 from api.dto import ErrorDetail, ErrorEnvelope, MetaBlock
+from core.config import Settings
 from core.exceptions import JarvisSkillError
 from core.kernel import Kernel
 from core.skills.installer import SkillInstaller
@@ -35,10 +37,26 @@ _require_install = require_permissions(["skill.install"])
 _require_remove = require_permissions(["skill.remove"])
 _require_read = require_permissions(["skill.read"])
 
+
+@lru_cache(maxsize=1)
+def _get_skills_root() -> Path:
+    """Resolve the on-disk skills directory from ``Settings.skills_dir``.
+
+    CR-004 §3.4: The default ``"skills"`` (CWD-relative) is preserved for dev
+    parity with the install route's existing path layout. Production
+    deployments override via the ``JARVIS_SKILLS_DIR`` env var (Pydantic
+    ``env_prefix="JARVIS_"``) or the ``skills_dir`` yaml key. The
+    :func:`functools.lru_cache` ensures a single ``Settings`` load per
+    process — the install path is called many times during a single request.
+    """
+    return Path(Settings.load_settings().skills_dir)
+
+
 # Where extracted skill files live on disk. Must match the path the
 # SkillSigner hashes (PermissionGatekeeper.calculate_directory_hash walks
-# this directory during install). Default = "<repo>/skills/<id>/".
-_SKILLS_ROOT = Path("skills")
+# this directory during install). Default = "<repo>/skills/<id>/" unless
+# overridden by ``JARVIS_SKILLS_DIR`` (see ``_get_skills_root``).
+_SKILLS_ROOT = _get_skills_root()
 
 
 def _success_response(

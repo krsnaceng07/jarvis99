@@ -172,3 +172,101 @@ def test_sandbox_module_has_no_forbidden_dependencies() -> None:
         "sqlalchemy",
     ):
         assert forbidden not in source
+
+
+# ---------------------------------------------------------------------------
+# CR-004 polish tests (3.2 narrow exception, 3.7 default-by-availability)
+# ---------------------------------------------------------------------------
+
+
+def test_docker_is_available_narrows_exception_classes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CR-004 §3.2: probe splits ImportError from OSError / ConnectionError.
+
+    The pre-fix probe caught ``Exception`` broadly, which silently masked
+    programmer errors (AttributeError, TypeError) as "Docker unavailable".
+    The fix splits the two ``try`` blocks so:
+      * ``(ImportError, ModuleNotFoundError)`` → returns False (SDK missing)
+      * ``(OSError, ConnectionError)`` → returns False (daemon unreachable)
+      * Anything else (programmer error in the probe) → propagates
+
+    This test exercises the third branch by monkeypatching
+    ``docker.from_env`` to raise ``AttributeError`` (a programmer error
+    in the probe), which must now propagate instead of being swallowed.
+    """
+    from core.skills import sandbox as sandbox_mod
+
+    # Simulate a programmer error in the probe by raising AttributeError
+    # from inside the import-ok branch. The fix must let this propagate.
+    class _BoomDocker:
+        @staticmethod
+        def from_env() -> None:
+            raise AttributeError("simulated probe bug")
+
+    monkeypatch.setitem(__import__("sys").modules, "docker", _BoomDocker)
+    with pytest.raises(AttributeError, match="simulated probe bug"):
+        sandbox_mod._docker_is_available()
+
+
+def test_sandbox_test_runner_default_enforce_follows_docker_availability(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CR-004 §3.7: default-by-availability is documented in the docstring.
+
+    The constructor's ``enforce_container_isolation=None`` default flips
+    based on the Docker probe result:
+      * Docker reachable → True (production posture)
+      * Docker NOT reachable → False (dev posture, process runner fallback)
+
+    The factory-method split (``SandboxTestRunner.auto()`` / ``.explicit()``)
+    was considered and rejected per the "second consumer before abstraction"
+    rule (only one consumer currently). The behavior is now explicitly
+    documented in the constructor docstring.
+
+    This test exercises both branches without requiring real Docker by
+    monkeypatching ``_docker_is_available``.
+    """
+    from core.skills import sandbox as sandbox_mod
+
+    # Branch 1: Docker reachable → enforce=True (default)
+    monkeypatch.setattr(sandbox_mod, "_docker_is_available", lambda: True)
+    runner_with = SandboxTestRunner()
+    assert runner_with._enforce_container_isolation is True
+
+    # Branch 2: Docker NOT reachable → enforce=False (default)
+    monkeypatch.setattr(sandbox_mod, "_docker_is_available", lambda: False)
+    runner_without = SandboxTestRunner()
+    assert runner_without._enforce_container_isolation is False
+
+    # Explicit override beats the default-by-availability rule.
+    runner_override = SandboxTestRunner(enforce_container_isolation=True)
+    assert runner_override._enforce_container_isolation is True
+
+
+def test_sandbox_test_runner_explicit_runners_skip_probe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CR-004 §3.7: when ``runners`` is supplied, the probe is skipped.
+
+    The auto-detection branch (``runners is None``) is purely additive;
+    supplying an explicit ``runners`` list preserves the previous
+    constructor contract — the probe is never called and the default
+    ``enforce_container_isolation`` falls back to ``True``.
+    """
+    from core.skills import sandbox as sandbox_mod
+
+    probe_called = False
+
+    def _fake_probe() -> bool:
+        nonlocal probe_called
+        probe_called = True
+        return True  # would otherwise force enforce=True
+
+    monkeypatch.setattr(sandbox_mod, "_docker_is_available", _fake_probe)
+    runner = SandboxTestRunner(
+        runners=[ProcessSandboxRunner()],
+        enforce_container_isolation=False,
+    )
+    assert probe_called is False
+    assert runner._enforce_container_isolation is False
