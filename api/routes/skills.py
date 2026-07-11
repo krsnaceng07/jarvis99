@@ -14,6 +14,10 @@ DO NOT CHANGE CONTRACTS HERE.
 Contracts come only from Phase Specification.
 """
 
+import shutil
+import zipfile
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 
@@ -23,12 +27,18 @@ from core.exceptions import JarvisSkillError
 from core.kernel import Kernel
 from core.skills.installer import SkillInstaller
 from core.skills.registry import SkillRegistry
+from core.tools.security import PermissionGatekeeper
 
 router = APIRouter(tags=["skills"])
 
 _require_install = require_permissions(["skill.install"])
 _require_remove = require_permissions(["skill.remove"])
 _require_read = require_permissions(["skill.read"])
+
+# Where extracted skill files live on disk. Must match the path the
+# SkillSigner hashes (PermissionGatekeeper.calculate_directory_hash walks
+# this directory during install). Default = "<repo>/skills/<id>/".
+_SKILLS_ROOT = Path("skills")
 
 
 def _success_response(
@@ -59,6 +69,22 @@ def _get_registry(kernel: Kernel = Depends(get_kernel)) -> SkillRegistry:
     return kernel.container.resolve(SkillRegistry)
 
 
+def _materialize_skill_files(skill_id: str, package_path: Path) -> Path:
+    """Extract a skill package zip to skills/<id>/ and return the resolved path.
+
+    The install path (SkillSigner.verify) hashes the on-disk directory at
+    skills/<id>/, so the package must be extracted there before install is
+    invoked. Overwrites any prior extraction.
+    """
+    target = _SKILLS_ROOT / skill_id
+    if target.exists():
+        shutil.rmtree(target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(package_path, "r") as archive:
+        archive.extractall(target)
+    return target
+
+
 # ---------------------------------------------------------------------------
 # POST /skills/install
 # ---------------------------------------------------------------------------
@@ -80,8 +106,28 @@ async def install_skill(
     """
     from core.skills.download_dto import DownloadedPackage
 
+    package_path = Path(f"skills/{skill_name}.zip")
+    if not package_path.is_file():
+        error = ErrorDetail(
+            code="SKILL_I008",
+            message=f"Skill package not found at {package_path}",
+        )
+        return JSONResponse(
+            status_code=400,
+            content=ErrorEnvelope(error=error).model_dump(mode="json"),
+        )
+
+    # Extract to skills/<id>/ so the SkillSigner can hash the on-disk files.
+    # In a real downloader flow this would be the downloader's job — for the
+    # Phase 18 / 41 route (which accepts a local_package on disk), the route
+    # owns the materialize step. Compute the real signature here.
+    _materialize_skill_files(skill_name, package_path)
+    real_signature = PermissionGatekeeper.calculate_directory_hash(
+        str(_SKILLS_ROOT / skill_name)
+    )
+
     # Build manifest payload from installer (simplified for Phase 18)
-    # In production, this would fetch from source_url or local path
+    # In production, this would fetch from source_url or local path.
     manifest_payload = {
         "id": skill_name,
         "name": skill_name,
@@ -91,7 +137,7 @@ async def install_skill(
         "entrypoint": "main.py",
         "permissions": ["file_read"],
         "dependencies": [],
-        "signature": "a" * 64,
+        "signature": real_signature,
         "checksum": "b" * 64,
         "jarvis_api_version": "0.8",
         "min_runtime_version": "0.8",
@@ -118,9 +164,9 @@ async def install_skill(
         skill_id=skill_name,
         version=version or "1.0.0",
         source_kind="local_package",
-        package_path=f"skills/{skill_name}.zip",
+        package_path=str(package_path),
         checksum="b" * 64,
-        size_bytes=1024,
+        size_bytes=package_path.stat().st_size,
     )
 
     caller_id = str(getattr(request.state, "user_id", "anonymous"))

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import zipfile
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -18,6 +20,50 @@ from api.routes.skills import (
 )
 from core.skills.dto import SkillMetadata
 from core.skills.installer import InstallResult
+
+# ---------------------------------------------------------------------------
+# Skill-package fixture — real runtime, not a 400 cop-out
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def skill_zip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
+    """Materialize a real skill zip at ``<cwd>/skills/<name>.zip`` for the route.
+
+    The install route in ``api/routes/skills.py`` looks for the package at
+    ``Path("skills/<name>.zip")`` (relative to CWD) and refuses with
+    ``SKILL_I008 / 400`` if it's missing. To exercise the real pipeline
+    (materialize → real signature → real install), this fixture writes a
+    real zip with a Python entrypoint and a test, then chdirs to a tmp
+    directory so the route's relative paths resolve to the fixture's
+    ``tmp_path/skills/<name>.zip`` and ``tmp_path/skills/<name>/``. After
+    the test, pytest cleans up ``tmp_path`` and ``monkeypatch.chdir``
+    restores CWD — no global ``skills/`` pollution.
+    """
+    name = "testskill"
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    zip_path = skills_dir / f"{name}.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr("main.py", "def run() -> str:\n    return 'hello from testskill'\n")
+        zf.writestr("tests/test_main.py", "def test_ok() -> None:\n    assert True\n")
+    monkeypatch.chdir(tmp_path)
+    return name
+
+
+@pytest.fixture()
+def myskill_zip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
+    """Second-skill variant of :func:`skill_zip` for the delegation test."""
+    name = "myskill"
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    zip_path = skills_dir / f"{name}.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr("main.py", "def run() -> str:\n    return 'hello from myskill'\n")
+        zf.writestr("tests/test_main.py", "def test_ok() -> None:\n    assert True\n")
+    monkeypatch.chdir(tmp_path)
+    return name
+
 
 # ---------------------------------------------------------------------------
 # Fake Registry
@@ -125,18 +171,21 @@ def client() -> tuple[TestClient, _FakeRegistry, _FakeInstaller]:
 
 
 class TestInstallEndpoint:
-    def test_install_returns_201(self, client: tuple) -> None:
+    def test_install_returns_201(self, client: tuple, skill_zip: str) -> None:
         http, _, _ = client
-        response = http.post("/api/v1/skills/install?skill_name=testskill")
-        assert response.status_code == 201
+        response = http.post(f"/api/v1/skills/install?skill_name={skill_zip}")
+        assert response.status_code == 201, response.text
         body = response.json()
         assert body["success"] is True
-        assert body["data"]["skill_id"] == "testskill"
+        assert body["data"]["skill_id"] == skill_zip
 
-    def test_install_delegates_to_installer(self, client: tuple) -> None:
+    def test_install_delegates_to_installer(
+        self, client: tuple, myskill_zip: str
+    ) -> None:
         http, _, installer = client
-        http.post("/api/v1/skills/install?skill_name=myskill")
-        assert "myskill" in installer._installed
+        response = http.post(f"/api/v1/skills/install?skill_name={myskill_zip}")
+        assert response.status_code == 201, response.text
+        assert myskill_zip in installer._installed
 
 
 class TestRemoveEndpoint:

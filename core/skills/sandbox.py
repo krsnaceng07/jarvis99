@@ -17,6 +17,7 @@ Contracts come only from Phase Specification.
 from __future__ import annotations
 
 import asyncio
+import logging
 import sys
 import zipfile
 from abc import ABC, abstractmethod
@@ -33,6 +34,28 @@ from core.tools.sandbox import DockerSandbox, ISandbox, LocalSubprocessSandbox
 _MAX_MEMORY_MB = 512
 _MAX_CPU = 1.0
 _MAX_TIMEOUT_SECONDS = 60
+
+logger = logging.getLogger("jarvis.core.skills.sandbox")
+
+
+def _docker_is_available() -> bool:
+    """Return True iff a Docker daemon is reachable from the current environment.
+
+    Probes the docker SDK + daemon (``docker.from_env().ping()``) without
+    importing the rest of the sandbox machinery. Used by ``SandboxTestRunner``
+    to auto-select between container and process isolation at boot time so a
+    missing Docker daemon (dev / CI without Docker) doesn't break the install
+    path — the existing ``ProcessSandboxRunner`` is the documented fallback.
+    """
+    try:
+        import docker  # type: ignore[import-not-found]
+
+        client = docker.from_env()
+        client.ping()
+        return True
+    except Exception as exc:  # noqa: BLE001 - probe must never raise
+        logger.debug("Docker probe failed; falling back to process isolation: %s", exc)
+        return False
 
 
 class SkillSandboxError(JarvisSkillError):
@@ -123,16 +146,56 @@ class VMSandboxRunner(SandboxRunner):
 
 
 class SandboxTestRunner:
-    """Extract package and execute sandbox tests via isolation adapters."""
+    """Extract package and execute sandbox tests via isolation adapters.
+
+    Auto-selects the available backend at construction time:
+      * If Docker is reachable → both ``container`` and ``process`` runners
+        are registered and ``enforce_container_isolation=True`` (production
+        posture: manifests requesting non-container isolation are rejected).
+      * If Docker is NOT reachable (dev / CI without Docker) → only the
+        ``process`` runner is registered and the isolation-enforcement flag
+        is dropped, so a manifest requesting ``container`` isolation is
+        transparently served by the process runner. This keeps the install
+        path healthy in dev environments where Docker is not available —
+        the existing ``ProcessSandboxRunner`` / ``LocalSubprocessSandbox`` is
+        the documented fallback (per ADR-015).
+
+    Callers that want full control can pass an explicit ``runners`` list and
+    ``enforce_container_isolation`` value, in which case auto-detection is
+    skipped (backward compatible with all existing tests).
+    """
 
     def __init__(
         self,
         runners: list[SandboxRunner] | None = None,
         *,
-        enforce_container_isolation: bool = True,
+        enforce_container_isolation: bool | None = None,
     ) -> None:
-        runner_list = runners or [ContainerSandboxRunner(), ProcessSandboxRunner()]
-        self._runners = {runner.isolation_mode: runner for runner in runner_list}
+        if runners is None:
+            # Auto-detect path. Explicit args (runners or enforce_*) preserve
+            # the previous contract — this branch is purely additive.
+            docker_ok = _docker_is_available()
+            if docker_ok:
+                runner_list: list[SandboxRunner] = [
+                    ContainerSandboxRunner(),
+                    ProcessSandboxRunner(),
+                ]
+            else:
+                runner_list = [ProcessSandboxRunner()]
+                logger.info(
+                    "Docker daemon unavailable; SandboxTestRunner will use "
+                    "ProcessSandboxRunner as the only isolation backend."
+                )
+            if enforce_container_isolation is None:
+                enforce_container_isolation = docker_ok
+        else:
+            runner_list = runners
+            if enforce_container_isolation is None:
+                enforce_container_isolation = True
+
+        self._runners: dict[IsolationMode, SandboxRunner] = {
+            runner.isolation_mode: runner for runner in runner_list
+        }
         self._enforce_container_isolation = enforce_container_isolation
 
     async def run(
@@ -147,11 +210,25 @@ class SandboxTestRunner:
             )
         runner = self._runners.get(manifest.isolation)
         if runner is None:
-            raise SkillSandboxError(
-                "SKILL_SB001",
-                "No sandbox runner registered for isolation mode",
-                {"isolation": manifest.isolation},
-            )
+            # No runner for the requested isolation mode. When isolation is
+            # not enforced (auto-detect path with Docker absent), fall back
+            # to the only registered runner — typically the process one —
+            # so a manifest requesting ``container`` isolation can still be
+            # served in a dev environment without Docker.
+            if not self._enforce_container_isolation and self._runners:
+                fallback = next(iter(self._runners.values()))
+                logger.info(
+                    "Requested isolation %r unavailable; using fallback %r.",
+                    manifest.isolation,
+                    fallback.isolation_mode,
+                )
+                runner = fallback
+            else:
+                raise SkillSandboxError(
+                    "SKILL_SB001",
+                    "No sandbox runner registered for isolation mode",
+                    {"isolation": manifest.isolation},
+                )
 
         with TemporaryDirectory(prefix="jarvis-skill-sandbox-") as temp_dir:
             workspace = Path(temp_dir)

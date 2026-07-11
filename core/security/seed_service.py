@@ -51,6 +51,8 @@ class SecuritySeedService:
             "vault.admin",
             "platform.admin",
             "skill.read",  # Phase 41 Capability Registry read (CR-001)
+            "skill.install",  # Phase 18 Skills API install (CR-002 runtime)
+            "skill.remove",  # Phase 18 Skills API remove (CR-002 runtime)
         ]
         permissions_map = {}
         for scope in scopes:

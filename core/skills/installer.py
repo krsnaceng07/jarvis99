@@ -140,6 +140,7 @@ class SkillInstaller:
             available[ctx.manifest.id] = ctx.manifest
 
             from core.skills.dependency_resolver import SkillDependencyResolver
+
             resolver = SkillDependencyResolver(available)
             resolver.resolve_dependencies(ctx.manifest)
         except JarvisSkillError as exc:
@@ -209,6 +210,17 @@ class SkillInstaller:
             )
             self._registry.register(metadata)
             ctx.state = "ACTIVE"
+            # Promote the persisted row to ACTIVE so hydrate() recovers the
+            # final post-register state. Without this, list_all_as_metadata
+            # returns status="INSTALLED" (the value used during _persist_skill)
+            # and a fresh registry rebuilt from the repository sees INSTALLED
+            # instead of ACTIVE — a real inconsistency between the in-memory
+            # cache and the source of truth.
+            await self._repository.update_skill_metadata(
+                ctx.manifest.id,  # type: ignore[arg-type]
+                session=None,  # type: ignore[arg-type]
+                status="ACTIVE",
+            )
         except Exception:
             # Registry failed — rollback persist to avoid inconsistent state
             await self._repository.remove_skill(ctx.manifest.id, session=None)  # type: ignore[arg-type]

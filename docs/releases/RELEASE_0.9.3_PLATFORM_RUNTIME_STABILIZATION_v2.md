@@ -293,6 +293,64 @@ key via the existing config layer.
 **Severity:** low. No action required; documented so
 future smoke runs don't re-flag this as a regression.
 
+### 9.4 Doc drift — Included Commits table is stale (2026-07-11 addendum)
+
+At the time of writing, §2 (Included Commits) listed 3
+commits (`e8c456b`, `a0e2c2a`, this docs commit). The
+tag `v0.9.3-platform-runtime-stabilization-v2` was
+created **at `a0e2c2a`** (the second commit in that
+list), not at the head of `main` after the push.
+
+Between `a0e2c2a` and the post-push head `4590631`,
+**10 additional commits** were added to `main` —
+listed below in chronological order (oldest → newest).
+These are post-0.9.3-v2 commits; the tag remains at
+`a0e2c2a` by architect decision (2026-07-11), so the
+tagged release covers the 3 commits in §2 exactly, and
+the additional 10 commits are present on `main` but not
+in the tagged snapshot.
+
+| # | Hash | Type | One-line |
+|---|------|------|----------|
+| 4 | `faddf89` | fix(persistence) | race-safe `save_task` via `IntegrityError` recovery |
+| 5 | `df6deab` | docs(cleanup) | remove two dead-weight files with no code refs |
+| 6 | `d38ffa1` | docs(headers) | remove stale IMPLEMENTATION PLAN pointer from 34 files |
+| 7 | `5628421` | docs(cleanup) | delete 5 superseded `PHASE_3X_IMPLEMENTATION_PLAN.md` drafts |
+| 8 | `ba133ba` | docs(releases) | add 0.9.3 Platform Runtime Stabilization v2 milestone report (this file) |
+| 9 | `800faa5` | chore(audit) | track GATE_11 verification report, ignore `.audit/*.py` helpers |
+| 10 | `4712c8b` | fix(tests) | align skill_routes URLs with `/api/v1/skills` prefix |
+| 11 | `c38cd46` | fix(skills) | align list_skills path with spec and rebase integration tests |
+| 12 | `bcb61c3` | fix(capability-matrix) | add `workflows.submit` probe to cover Workflows category |
+| 13 | `4e979ed` | fix(capability-matrix) | align `skills.list` probe path with trailing-slash route (`c38cd46`) |
+| 14 | `4590631` | chore(gitignore) | ignore ephemeral `test_e2e` sqlite fixtures |
+
+(Item 8 — `ba133ba` — IS the §2 #3 "this docs commit" entry;
+it is listed here for completeness of the chronological
+range. The "additional 10" count is 4 (faddf89 → 5628421) +
+6 (800faa5 → 4590631) = 10, with `ba133ba` being the
+docs commit referenced from §2.)
+
+**Resolution options (architect decision):**
+
+- **A. Addendum (this section)** — keep the tag at
+  `a0e2c2a`, document the 10 extra commits here.
+  **Chosen for the 0.9.4 push** because the tag is
+  already published and the additional commits are
+  documentation / hygiene / test-only, not behavioral.
+- **B. Cut a `v0.9.3-platform-runtime-stabilization-v3`**
+  at `4590631` covering the 10 extra commits as a
+  separate release. Requires a new doc; defer until/unless
+  a consumer needs the tagged snapshot.
+- **C. Defer** — focus on 0.9.4 work; doc drift is a
+  paperwork issue, not a code issue. **(Same as A.)**
+
+**Severity:** low. The tag and the doc agree on the
+3-commit "core" of the release. The 10 additional
+commits are present on `main`, are individually
+auditable via the `git log a0e2c2a..4590631` range, and
+are summarized in the table above. No behavior in the
+tagged release is changed by the addendum.
+
 ## 10. Deferred Work
 
 | Item | Reason | Target |

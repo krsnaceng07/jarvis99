@@ -365,6 +365,11 @@ class Kernel(LifecycleInterface):
             # "No service registered for interface 'SkillInstaller'".
             # Constructing + registering the full installer here completes
             # the Phase 18 wiring.
+            # Imported here (instead of the later memory block) so the
+            # SkillRepository constructor below can bind to it. db_manager
+            # is a module-level singleton; .init(settings) still runs in
+            # the persistent-execution block further down.
+            from core.memory.database import db_manager
             from core.skills.installer import SkillInstaller
             from core.skills.permission_engine import SkillPermissionEngine
             from core.skills.repository import SkillRepository
@@ -373,7 +378,11 @@ class Kernel(LifecycleInterface):
             from core.skills.validator import SkillValidator
 
             skill_validator = SkillValidator()
-            skill_repository = SkillRepository()
+            # CR-002 runtime fix: pass db_manager so the repository can open
+            # its own session when the installer calls with session=None.
+            # The installer's repository calls were written assuming a bound
+            # session_factory (see core/skills/installer.py:132,151,etc.).
+            skill_repository = SkillRepository(db_manager=db_manager)
             skill_sandbox_runner = SandboxTestRunner()
             skill_signer = SkillSigner()
             skill_permission_engine = SkillPermissionEngine(

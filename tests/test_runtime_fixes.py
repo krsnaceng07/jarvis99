@@ -1,18 +1,27 @@
 """
-PHASE: Platform Infrastructure (CR-002 runtime-fix companion)
+PHASE: Platform Infrastructure
 STATUS: IMPLEMENTATION
 SPECIFICATION:
-    docs/CR/CR-002-skills-router-mount-shadowing.md
-    (section "Future-proof runtime fixes" — companion to the route-shadowing fix)
+    docs/CR/CR-001-mission-scheduler-and-skill-read.md  (context: the
+        CR-001 validation cycle that surfaced these bugs)
+    docs/.audit/GATE_11_RUNTIME_STARTUP.md  (Gate #11 report; §12 lists
+        the 4 deferred bugs as 0.9.3 work)
 
 IMPLEMENTATION PLAN:
-    docs/CR/CR-002-skills-router-mount-shadowing.md
+    N/A — this file is a regression-test bundle for four independent
+    runtime fixes; each fix has its own commit on main (search the
+    log for the symbol names below).
 
 AUTHORITATIVE:
     NO
 
 Regression tests for the four runtime bugs that the comprehensive
-``scripts/runtime_sweep.py`` exposed on top of CR-002:
+``scripts/runtime_sweep.py`` exposed during the 0.9.2 startup
+validation cycle (Gate #11). They are independent fixes in
+different subsystems — not a sub-fix of any single CR — and the
+historical reference to the route-shadowing CR-002 (renamed to
+CR-003 on 2026-07-10) has been removed to keep the docstring
+accurate:
 
   1. ``VaultManager.is_locked()`` was missing → 503 on
      ``/api/v1/platform/readiness`` ("VaultManager has no attribute is_locked").
