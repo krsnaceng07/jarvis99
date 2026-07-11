@@ -151,6 +151,11 @@ test_missions_*.db
 test_missions_*.db-shm
 test_missions_*.db-wal
 
+# E2E integration test fixtures — per-test sqlite DBs (uuid-suffixed)
+test_e2e_*.db
+test_e2e_*.db-shm
+test_e2e_*.db-wal
+
 # Local analysis/visualization artifacts
 JARVIS_CODEBASE_ANALYSIS.html
 
