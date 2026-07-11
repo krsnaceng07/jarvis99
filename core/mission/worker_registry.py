@@ -1,11 +1,11 @@
 """
-PHASE: 45 (M6.4.A)
+PHASE: 45 (M6.4.B — task accounting)
 STATUS: IMPLEMENTATION
 SPECIFICATION:
-    docs/107_PHASE_45_PERSISTENT_AUTONOMOUS_RUNTIME_SPECIFICATION.md  (§4.4 Distributed Execution — D-1 worker liveness)
+    docs/107_PHASE_45_PERSISTENT_AUTONOMOUS_RUNTIME_SPECIFICATION.md  (§4.4 Distributed Execution — D-1 worker liveness; D-3 dedup; D-4 idempotency)
 
 IMPLEMENTATION PLAN:
-    docs/108_PHASE_45_IMPLEMENTATION_PLAN.md  (M6.4.A — worker_registry liveness helper)
+    docs/108_PHASE_45_IMPLEMENTATION_PLAN.md  (M6.4.B — worker_registry.mark_task_started / mark_task_completed)
 
 AUTHORITATIVE:
     NO
@@ -489,6 +489,208 @@ class WorkerRegistry:
                     return False
                 if row.status != WORKER_STATUS_OFFLINE:
                     row.status = WORKER_STATUS_OFFLINE
+                return True
+
+    # ------------------------------------------------------------------
+    # M6.4.B — task accounting (idempotent on (worker, wave))
+    # ------------------------------------------------------------------
+
+    async def mark_task_started(
+        self,
+        *,
+        worker_id: UUID,
+        wave_run_id: UUID,
+    ) -> bool:
+        """Mark a wave as started on the worker. Idempotent on duplicate calls.
+
+        The M6.4.B worker's call to acknowledge that a wave picked up from
+        the ``MissionTransport`` is now executing. Updates
+        ``worker_registry.active_tasks`` so the load-aware router tiebreak
+        sees the increment on the next ``route()`` call.
+
+        D-4 invariant: the transport is at-least-once — the same wave may
+        be delivered twice. ``mark_task_started`` MUST therefore be
+        idempotent on repeated calls for the same ``(worker_id,
+        wave_run_id)`` pair.
+
+        The helper is keyed on the existing ``task_routing_log`` table
+        (D-3 unique index on ``(wave_run_id, chosen_worker_id)``). The
+        "is this wave already in-flight on this worker?" check is
+        ``task_routing_log.completed_at IS NULL`` for the matching row.
+
+        Idempotency strategy: lock the routing row + worker row with
+        ``SELECT ... FOR UPDATE``; count the in-flight routing rows for
+        this worker; if ``active_tasks`` is already ``>=`` the in-flight
+        count, the increment was applied on a prior call and this call
+        is a no-op. Otherwise increment by 1.
+
+        Args:
+            worker_id: The worker that is starting the task.
+            wave_run_id: The D-3 dedup key + idempotency key (D-4).
+
+        Returns:
+            ``True`` if a state transition occurred (active_tasks was
+            incremented) or if the call was idempotent on a previously
+            in-flight wave. ``False`` if no routing row exists for
+            ``(wave_run_id, chosen_worker_id=worker_id)`` (the caller
+            should ``route()`` first) OR if the wave is already
+            completed.
+
+        Raises:
+            ValueError: on non-UUID arguments.
+        """
+        if not isinstance(worker_id, UUID):
+            raise ValueError(
+                f"worker_id must be a UUID (got {type(worker_id).__name__})."
+            )
+        if not isinstance(wave_run_id, UUID):
+            raise ValueError(
+                f"wave_run_id must be a UUID (got {type(wave_run_id).__name__})."
+            )
+        # Imported here to avoid a top-level circular import (the
+        # routing model is registered via ``core.runtime.mission_models``).
+        from sqlalchemy import func
+
+        from core.runtime.mission_models import (
+            TaskRoutingLogModel,
+        )
+
+        async with self._db.session() as session:
+            async with session.begin():
+                # Lock the routing row + the worker row together so a
+                # concurrent mark_task_started / mark_task_completed on
+                # the same worker cannot interleave. SQLite ignores
+                # ``with_for_update`` (the database is single-writer);
+                # the SAVEPOINT discipline on the outer ``begin`` is
+                # the cross-dialect atomicity guard.
+                routing_stmt = (
+                    select(TaskRoutingLogModel, WorkerRegistryModel)
+                    .join(
+                        WorkerRegistryModel,
+                        TaskRoutingLogModel.chosen_worker_id
+                        == WorkerRegistryModel.worker_id,
+                    )
+                    .where(TaskRoutingLogModel.wave_run_id == wave_run_id)
+                    .where(TaskRoutingLogModel.chosen_worker_id == worker_id)
+                    .with_for_update()
+                )
+                res = await session.execute(routing_stmt)
+                rows = res.all()
+                if not rows:
+                    return False
+                log_row, worker_row = rows[0]
+                if log_row.completed_at is not None:
+                    # Already completed — caller should not start a
+                    # finished wave. D-4 exactly-once: the runtime is
+                    # responsible for skipping the duplicate here.
+                    return False
+
+                # Idempotency: count in-flight routing rows for this
+                # worker (D-3 unique index guarantees ≤ 1 per
+                # ``(wave_run_id, chosen_worker_id)`` pair, so the
+                # in-flight count = "number of waves not yet completed
+                # on this worker").
+                in_flight_stmt = (
+                    select(func.count())
+                    .select_from(TaskRoutingLogModel)
+                    .where(TaskRoutingLogModel.chosen_worker_id == worker_id)
+                    .where(TaskRoutingLogModel.completed_at.is_(None))
+                )
+                in_flight = int((await session.scalar(in_flight_stmt)) or 0)
+                if int(worker_row.active_tasks) >= in_flight:
+                    # active_tasks already covers this wave — a prior
+                    # call did the increment. No-op (idempotent).
+                    return True
+                # Defensive: in_flight must be ≥ 1 here (we just verified
+                # the current row is in-flight). Increment by 1.
+                worker_row.active_tasks = int(worker_row.active_tasks) + 1
+                return True
+
+    async def mark_task_completed(
+        self,
+        *,
+        worker_id: UUID,
+        wave_run_id: UUID,
+    ) -> bool:
+        """Mark a wave as completed on the worker. Idempotent.
+
+        The M6.4.B worker's call to acknowledge that an in-flight wave
+        finished. Sets ``task_routing_log.completed_at`` and decrements
+        ``worker_registry.active_tasks`` so the load-aware router
+        tiebreak sees the decrement on the next ``route()`` call.
+
+        D-4 invariant: the runtime may re-deliver a completed wave
+        (e.g. a worker that crashed after the task ran but before
+        acking). ``mark_task_completed`` MUST therefore be idempotent on
+        duplicate calls.
+
+        The helper is keyed on the same ``task_routing_log`` row used
+        by ``mark_task_started``. ``completed_at`` flips from ``NULL``
+        to ``now`` exactly once; subsequent calls observe the
+        non-null ``completed_at`` and return without touching
+        ``active_tasks``.
+
+        Args:
+            worker_id: The worker that completed the task.
+            wave_run_id: The D-3 dedup key + idempotency key (D-4).
+
+        Returns:
+            ``True`` if ``completed_at`` was set (transition) or if the
+            call was idempotent on an already-completed wave. ``False``
+            if no routing row exists for the
+            ``(wave_run_id, chosen_worker_id=worker_id)`` pair (caller
+            should ``route()`` first).
+
+        Raises:
+            ValueError: on non-UUID arguments.
+        """
+        if not isinstance(worker_id, UUID):
+            raise ValueError(
+                f"worker_id must be a UUID (got {type(worker_id).__name__})."
+            )
+        if not isinstance(wave_run_id, UUID):
+            raise ValueError(
+                f"wave_run_id must be a UUID (got {type(wave_run_id).__name__})."
+            )
+
+        from core.runtime.mission_models import (
+            TaskRoutingLogModel,
+        )
+
+        now = self._clock()
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+
+        async with self._db.session() as session:
+            async with session.begin():
+                # Lock the routing row + the worker row together (see
+                # mark_task_started for the cross-dialect note).
+                routing_stmt = (
+                    select(TaskRoutingLogModel, WorkerRegistryModel)
+                    .join(
+                        WorkerRegistryModel,
+                        TaskRoutingLogModel.chosen_worker_id
+                        == WorkerRegistryModel.worker_id,
+                    )
+                    .where(TaskRoutingLogModel.wave_run_id == wave_run_id)
+                    .where(TaskRoutingLogModel.chosen_worker_id == worker_id)
+                    .with_for_update()
+                )
+                res = await session.execute(routing_stmt)
+                rows = res.all()
+                if not rows:
+                    return False
+                log_row, worker_row = rows[0]
+                if log_row.completed_at is not None:
+                    # Already completed — idempotent no-op. ``active_tasks``
+                    # was decremented on the original call.
+                    return True
+                # Mark completed + decrement. Defensive: never go below
+                # zero (a buggy caller that complete-without-start
+                # cannot create a negative count).
+                log_row.completed_at = now
+                if int(worker_row.active_tasks) > 0:
+                    worker_row.active_tasks = int(worker_row.active_tasks) - 1
                 return True
 
 

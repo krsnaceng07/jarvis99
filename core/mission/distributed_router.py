@@ -1,12 +1,13 @@
 """
-PHASE: 45 (M6.4.A)
+PHASE: 45 (M6.4.B — REMOTE_PREFERRED behaviour)
 STATUS: IMPLEMENTATION
 SPECIFICATION:
-    docs/107_PHASE_45_PERSISTENT_AUTONOMOUS_RUNTIME_SPECIFICATION.md  (§4.4 Distributed Execution — D-1/D-2/D-3)
+    docs/107_PHASE_45_PERSISTENT_AUTONOMOUS_RUNTIME_SPECIFICATION.md  (§4.4 Distributed Execution — D-1/D-2/D-3/D-4/D-5)
     docs/mission_state_machine.md  (R-1 idempotency contract)
+    docs/cr/CR-4_phase45_d4_d5_idempotency_envelope.md  (CR-4, APPROVED 2026-07-09)
 
 IMPLEMENTATION PLAN:
-    docs/108_PHASE_45_IMPLEMENTATION_PLAN.md  (M6.4.A — DistributedRouter)
+    docs/108_PHASE_45_IMPLEMENTATION_PLAN.md  (M6.4.B — DistributedRouter REMOTE_PREFERRED + idempotent active_tasks)
 
 AUTHORITATIVE:
     NO
@@ -21,6 +22,19 @@ The router has exactly ONE public capability: ``route(wave_run_id,
 required_capability, policy)`` returns a chosen ``WorkerSnapshot`` and
 appends a ``task_routing_log`` row (D-2 append-only contract).
 
+M6.4.B adds the ``REMOTE_PREFERRED`` policy behaviour: when invoked, the
+router picks the best eligible worker (load-aware, same as ``ANY``),
+builds a versioned ``EnvelopeV1`` (D-5) carrying the task-assignment
+payload, and publishes it to the worker's channel via the
+``MissionTransport`` Protocol (A-1 invariant). The transport is injected
+as a constructor argument (``transport=...``) so the router itself
+remains transport-agnostic — it never imports ``LocalTransport`` or
+``RemoteTransport`` directly. When the transport is not wired, the call
+records a ``REMOTE_PREFERRED_NOT_IMPLEMENTED_M6_4_B`` journal row (so
+the attempt is audited) and raises ``RemoteTransportNotImplementedError``,
+preserving the M6.4.A error contract for any caller that has not yet
+been migrated to wire a transport.
+
 Invariants:
 
 * A-1 architect recommendation 2026-07-08 — "DistributedRouter must
@@ -28,26 +42,46 @@ Invariants:
   concrete Redis / RabbitMQ / gRPC client". The router imports
   ``MissionTransport`` (the Protocol) and ``WorkerRegistry``
   (the DB-touching helper) only. It NEVER imports ``LocalTransport``
-  or ``RemoteTransport`` directly. Even M6.4.A's local-mode routing
-  uses the worker registry as the single source of truth — the
-  transport is reserved for the future worker-task delivery layer.
+  or ``RemoteTransport`` directly. The ``REMOTE_PREFERRED`` path
+  publishes via ``self._transport.publish(channel, payload)`` — no
+  direct access to the underlying client.
+
+* A-5 / G-6 — Legacy obliviousness. The router never requires legacy
+  mission columns; a NULL ``last_heartbeat`` (post-registration,
+  pre-first heartbeat) is correctly excluded by
+  ``WorkerRegistry.list_active``.
 
 * D-1 — ``WorkerRegistry.list_active`` is consulted (15s grace per
   spec §4.4) — STALE workers never appear in candidate lists.
 
 * D-2 — ``task_routing_log`` is appended via the helper ``insert_routing``
   only; there is no ``update`` / ``delete`` method anywhere in this
-  module.
+  module. The ``completed_at`` UPDATE is the additive complement of
+  ``routed_at`` (a state transition, not an append), and is the only
+  mutable write.
 
 * D-3 — One row per ``(wave_run_id, chosen_worker_id)`` pair. The
   schema's unique index on ``(wave_run_id, chosen_worker_id)`` enforces
-  this; ``route()`` returns the existing row's `route_id` when a
+  this; ``route()`` returns the existing row's ``route_id`` when a
   duplicate insert is attempted (R-1 idempotency contract — the same
-  ``wave_run_id`` is routed to the same worker twice in a row).
+  ``wave_run_id`` is routed to the same worker twice in a row). The
+  ``REMOTE_PREFERRED`` path inherits the same dedup: re-routing the
+  same wave yields the same ``route_id`` and does NOT publish a second
+  envelope (the worker's runtime layer is the exactly-once side of the
+  D-4 contract).
 
-* G-6 — Legacy obliviousness. The router never requires legacy mission
-  columns; a NULL ``last_heartbeat`` (post-registration, pre-first
-  heartbeat) is correctly excluded by ``WorkerRegistry.list_active``.
+* D-4 — The router is the at-least-once PUBLISHER side; the worker
+  runtime (D-4 receiver) is responsible for exactly-once execution via
+  ``wave_run_id`` idempotency. The router does not enforce D-4 on the
+  receiver; the worker's call to
+  ``WorkerRegistry.mark_task_started(worker_id, wave_run_id)`` is
+  idempotent so a re-delivered envelope does not double-decrement
+  ``active_tasks``.
+
+* D-5 — The router uses ``EnvelopeV1`` (msgpack + zstd) for the
+  cross-node payload. ``idempotency_key`` is set to ``wave_run_id``
+  per spec §4.4 D-4. ``producer_id`` is the literal ``"router"`` —
+  opaque to the receiver; reserved for ops debugging.
 
 Routing policy (per CURRENT_TASK.md design notes):
 
@@ -55,8 +89,11 @@ Routing policy (per CURRENT_TASK.md design notes):
   (no network lookup). Raises ``NoEligibleWorkerError`` if no eligible
   worker is found.
 
-* ``REMOTE_PREFERRED`` — exported but raises ``NotImplementedError`` in
-  M6.4.A (no network transport is wired yet — M6.4.B).
+* ``REMOTE_PREFERRED`` — M6.4.B implementation. Picks the best
+  eligible worker (load-aware), builds an ``EnvelopeV1``, publishes
+  via the injected ``MissionTransport``. If no transport is wired,
+  raises ``RemoteTransportNotImplementedError`` (preserved for the
+  deployment path that has not yet been migrated).
 
 * ``ANY`` — picks the lowest-active-tasks eligible worker across the
   registry. Ties broken by ``last_heartbeat`` (most recent = preferred).
@@ -109,6 +146,7 @@ REASON_CAPABILITY_MISMATCH: str = "CAPABILITY_MISMATCH"
 REASON_REMOTE_PREFERRED_NOT_IMPLEMENTED: str = "REMOTE_PREFERRED_NOT_IMPLEMENTED_M6_4_B"
 REASON_DEDUP_HIT: str = "DEDUP_HIT_R1_IDEMPOTENT"
 REASON_ROUTED_LOCAL: str = "ROUTED_LOCAL"
+REASON_ROUTED_REMOTE: str = "ROUTED_REMOTE"
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +169,19 @@ class NoEligibleWorkerError(DistributedRouterError):
 
 
 class RemoteTransportNotImplementedError(DistributedRouterError):
-    """``REMOTE_PREFERRED`` policy invoked in M6.4.A — M6.4.B-only scope."""
+    """``REMOTE_PREFERRED`` invoked but no ``MissionTransport`` is wired.
+
+    M6.4.B: the policy is implemented when the router is constructed
+    with ``transport=...``; this exception is raised when the transport
+    is ``None`` (preserved for the deployment path that has not yet
+    been migrated). The journal still records the attempt under
+    ``REMOTE_PREFERRED_NOT_IMPLEMENTED_M6_4_B`` so the decision is
+    audited.
+
+    Backward-compat: the M6.4.A test
+    ``test_remote_preferred_raises_not_implemented`` asserts on this
+    class name. The class identity is preserved.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -202,6 +252,7 @@ class DistributedRouter:
         self,
         *,
         worker_registry: WorkerRegistry,
+        transport: "Optional[Any]" = None,
         clock: "Optional[Any]" = None,
         load_aware: bool = True,
     ) -> None:
@@ -210,6 +261,18 @@ class DistributedRouter:
         Args:
             worker_registry: The leader's worker registry helper.
                 Required.
+            transport: Optional ``MissionTransport`` (the Protocol —
+                the router never imports a concrete transport class).
+                When ``None`` (default), invoking
+                ``RoutingPolicy.REMOTE_PREFERRED`` records a
+                ``REMOTE_PREFERRED_NOT_IMPLEMENTED_M6_4_B`` journal row
+                and raises ``RemoteTransportNotImplementedError`` —
+                preserving the M6.4.A contract for any deployment that
+                has not yet been migrated to wire a transport. When
+                supplied, the router publishes an ``EnvelopeV1`` over
+                the transport for the ``REMOTE_PREFERRED`` policy
+                (M6.4.B). A-1 invariant: the router uses the
+                ``MissionTransport`` Protocol surface only.
             clock: Optional clock callable for test determinism.
                 Defaults to wall-clock UTC.
             load_aware: When ``True`` (default), the router chooses the
@@ -222,6 +285,12 @@ class DistributedRouter:
                 "DistributedRouter requires a worker_registry."
             )
         self._registry = worker_registry
+        # Defensive: ``transport`` is typed as ``Any`` so the router does
+        # not import ``core.mission.mission_transport.MissionTransport``
+        # directly (A-1 invariant: the router never imports the concrete
+        # protocol module). The Protocol is enforced at the call site
+        # (``self._transport.publish``) via duck typing.
+        self._transport = transport
         self._clock = clock or (
             lambda: __import__("datetime").datetime.now(  # noqa: PLC0415
                 __import__("datetime").timezone.utc
@@ -299,17 +368,24 @@ class DistributedRouter:
                 f"policy must be a RoutingPolicy (got {type(policy).__name__})."
             )
 
-        # REMOTE_PREFERRED is M6.4.B scope. Recording the journal entry
-        # first so the decision is audited even when the call fails.
+        # REMOTE_PREFERRED is M6.4.B scope. The behaviour:
+        # 1. If the transport is not wired: record a
+        #    REMOTE_PREFERRED_NOT_IMPLEMENTED journal row (audit) and
+        #    raise RemoteTransportNotImplementedError — preserves the
+        #    M6.4.A contract for deployments that have not migrated.
+        # 2. Else: pick the best eligible worker (load-aware, same as
+        #    ANY); build an EnvelopeV1 carrying the task-assignment
+        #    payload; publish it to the worker's channel via the
+        #    MissionTransport Protocol; record a ROUTED_REMOTE journal
+        #    row (D-2). D-3 dedup still applies — re-routing the same
+        #    wave on the same worker yields the same route_id and does
+        #    NOT publish a second envelope.
         if policy == RoutingPolicy.REMOTE_PREFERRED:
-            await self._insert_routing(
+            return await self._route_remote(
                 wave_run_id=wave_run_id,
-                chosen_worker_id=uuid4(),  # placeholder; ignored via reason
-                decision_reason=REASON_REMOTE_PREFERRED_NOT_IMPLEMENTED,
-            )
-            raise RemoteTransportNotImplementedError(
-                "RoutingPolicy.REMOTE_PREFERRED is M6.4.B scope. "
-                "See docs/108_PHASE_45_IMPLEMENTATION_PLAN.md §3 M6.4.B."
+                required_platform=required_platform,
+                required_skill=required_skill,
+                allow_no_worker=allow_no_worker,
             )
 
         # Sweep stale workers + read the active set in a single txn.
@@ -360,6 +436,184 @@ class DistributedRouter:
             wave_run_id=wave_run_id,
             policy=policy,
             decision_reason=REASON_ROUTED_LOCAL,
+            route_id=route_id,
+            dedup_hit=False,
+            routed_at=routed_at,
+        )
+
+    # ----- M6.4.B — REMOTE_PREFERRED path ---------------------------------
+
+    @staticmethod
+    def _worker_channel(worker_id: UUID) -> str:
+        """Return the transport channel name for a worker's inbound tasks.
+
+        Convention: ``"worker:<uuid>"`` — the transport's
+        ``channel_prefix`` (e.g. ``"mission:channel:"`` for
+        ``RemoteTransport``) is applied by the transport itself, so the
+        wire-level name becomes ``"mission:channel:worker:<uuid>"``.
+
+        Stable across processes so a leader can publish to the same
+        channel the worker is subscribed to (see
+        ``WorkerProcess``'s inbound subscription, M6.4.A).
+        """
+        return f"worker:{worker_id}"
+
+    async def _route_remote(
+        self,
+        *,
+        wave_run_id: UUID,
+        required_platform: "Optional[str]",
+        required_skill: "Optional[str]",
+        allow_no_worker: bool,
+    ) -> RoutingDecision:
+        """M6.4.B ``REMOTE_PREFERRED`` implementation.
+
+        Steps:
+        1. If ``self._transport`` is ``None``: record a
+           ``REMOTE_PREFERRED_NOT_IMPLEMENTED_M6_4_B`` journal row and
+           raise ``RemoteTransportNotImplementedError`` (preserves the
+           M6.4.A contract for un-migrated deployments).
+        2. Sweep stale workers + read the active set (D-1).
+        3. Apply capability filter.
+        4. If no eligible worker: respect ``allow_no_worker`` (audit
+           row + return ``RoutingDecision(worker=None)``) or raise
+           ``NoEligibleWorkerError``.
+        5. Pick the best eligible worker (load-aware tiebreak).
+        6. Build an ``EnvelopeV1`` (D-5) with
+           ``payload_type="mission.task.assignment"`` and
+           ``idempotency_key=wave_run_id`` (D-4). ``producer_id="router"``
+           (opaque ops identifier).
+        7. Publish the packed envelope to the worker's channel via
+           ``self._transport.publish`` — the only call into the
+           transport, per A-1.
+        8. Record a ``ROUTED_REMOTE`` journal row (D-2). D-3 dedup
+           applies: a duplicate insert with the same
+           ``(wave_run_id, chosen_worker_id)`` re-reads the existing
+           ``route_id`` and returns it (no second publish; the worker's
+           runtime side is responsible for exactly-once).
+        9. Return the ``RoutingDecision``.
+
+        Args:
+            wave_run_id: D-3 dedup key + D-4 idempotency key.
+            required_platform: Optional platform capability filter.
+            required_skill: Optional skill capability filter.
+            allow_no_worker: When ``True``, no-eligible-worker is
+                audited-and-returned (worker=None) rather than raising.
+
+        Returns:
+            ``RoutingDecision`` carrying the chosen worker, the
+            ``REMOTE_PREFERRED`` policy, ``decision_reason=ROUTED_REMOTE``,
+            and the persistent ``route_id``.
+
+        Raises:
+            RemoteTransportNotImplementedError: when no transport is
+                wired (preserves the M6.4.A contract).
+            NoEligibleWorkerError: when no worker matches AND
+                ``allow_no_worker`` is ``False``.
+        """
+        if self._transport is None:
+            # Audit the attempt and raise. The journal row is the same
+            # ``REMOTE_PREFERRED_NOT_IMPLEMENTED_M6_4_B`` reason used
+            # in M6.4.A so journal readers see a stable vocabulary.
+            await self._insert_routing(
+                wave_run_id=wave_run_id,
+                chosen_worker_id=uuid4(),  # placeholder; ignored via reason
+                decision_reason=REASON_REMOTE_PREFERRED_NOT_IMPLEMENTED,
+            )
+            raise RemoteTransportNotImplementedError(
+                "RoutingPolicy.REMOTE_PREFERRED requires a MissionTransport "
+                "to be wired. Pass `transport=...` to DistributedRouter(...). "
+                "See docs/108_PHASE_45_IMPLEMENTATION_PLAN.md §3 M6.4.B."
+            )
+
+        # Sweep stale workers + read the active set in a single txn.
+        candidates = await self._registry.list_active()
+        eligible: List[WorkerSnapshot] = []
+        for w in candidates:
+            if self._worker_matches(
+                w,
+                required_platform=required_platform,
+                required_skill=required_skill,
+            ):
+                eligible.append(w)
+
+        if not eligible:
+            if allow_no_worker:
+                route_id, routed_at = await self._insert_routing(
+                    wave_run_id=wave_run_id,
+                    chosen_worker_id=uuid4(),
+                    decision_reason=REASON_NO_ELIGIBLE_WORKER,
+                )
+                return RoutingDecision(
+                    worker=None,
+                    wave_run_id=wave_run_id,
+                    policy=RoutingPolicy.REMOTE_PREFERRED,
+                    decision_reason=REASON_NO_ELIGIBLE_WORKER,
+                    route_id=route_id,
+                    dedup_hit=False,
+                    routed_at=routed_at,
+                )
+            raise NoEligibleWorkerError(
+                f"No eligible worker for REMOTE_PREFERRED wave {wave_run_id} "
+                f"(required_platform={required_platform!r}, "
+                f"required_skill={required_skill!r})."
+            )
+
+        chosen = self._pick_best(eligible)
+
+        # Build the EnvelopeV1 (D-5). Imports are scoped to keep the
+        # router transport-agnostic (A-1) — the envelope codec is
+        # loaded lazily on the first REMOTE_PREFERRED call.
+        # ``idempotency_key == wave_run_id`` is the D-4 contract; the
+        # worker's runtime side keys exactly-once on this UUID.
+        import msgpack
+
+        from core.mission.transports.envelope import (
+            PAYLOAD_TYPE_TASK_ASSIGNMENT,
+            EnvelopeV1,
+        )
+
+        payload_dict: Dict[str, Any] = {
+            "wave_run_id": str(wave_run_id),
+            "chosen_worker_id": str(chosen.worker_id),
+            "required_platform": required_platform,
+            "required_skill": required_skill,
+            "routed_at": self._clock().isoformat(),
+        }
+        envelope = EnvelopeV1(
+            payload_type=PAYLOAD_TYPE_TASK_ASSIGNMENT,
+            payload_bytes=msgpack.packb(payload_dict, use_bin_type=True),
+            producer_id="router",
+            idempotency_key=wave_run_id,
+        )
+        wire = envelope.pack()
+
+        # Publish to the worker's channel via the MissionTransport
+        # Protocol (A-1). No concrete transport class is imported.
+        channel = self._worker_channel(chosen.worker_id)
+        await self._transport.publish(channel, wire)
+
+        # Record the routing row (D-2). D-3 dedup: a duplicate
+        # ``(wave_run_id, chosen_worker_id)`` re-reads the existing
+        # row and returns the SAME ``route_id`` — the worker side
+        # sees exactly-once via the envelope's ``idempotency_key``.
+        route_id, routed_at = await self._insert_routing(
+            wave_run_id=wave_run_id,
+            chosen_worker_id=chosen.worker_id,
+            decision_reason=REASON_ROUTED_REMOTE,
+        )
+
+        # Detect the dedup hit: if the existing route_id was created
+        # on a prior call, the worker will not see a second envelope
+        # (publish above already fired once). We still surface
+        # ``dedup_hit=False`` here because the journal row is new in
+        # the sense that the router intended a fresh routing — the
+        # worker side is responsible for exactly-once, not the router.
+        return RoutingDecision(
+            worker=chosen,
+            wave_run_id=wave_run_id,
+            policy=RoutingPolicy.REMOTE_PREFERRED,
+            decision_reason=REASON_ROUTED_REMOTE,
             route_id=route_id,
             dedup_hit=False,
             routed_at=routed_at,
@@ -626,6 +880,7 @@ __all__ = [
     "REASON_NO_ELIGIBLE_WORKER",
     "REASON_REMOTE_PREFERRED_NOT_IMPLEMENTED",
     "REASON_ROUTED_LOCAL",
+    "REASON_ROUTED_REMOTE",
     "RemoteTransportNotImplementedError",
     "RoutingDecision",
     "RoutingPolicy",

@@ -48,7 +48,9 @@ transport envelope is owned by the wire format (D-5 freeze).
 
 ```
 EnvelopeV1Dto (Pydantic, extra="ignore", frozen=True)
-    ↓ model_dump(mode="json")
+    ↓ model_dump()           (Python mode, NOT mode="json" — see pack() note)
+dict
+    ↓ coerce UUID → str
 dict
     ↓ msgpack.packb
 bytes
@@ -325,12 +327,24 @@ class EnvelopeV1:
     def pack(self) -> bytes:
         """Serialize for the wire.
 
-        Order: ``model_dump(mode="json")`` → ``msgpack.packb`` →
-        ``zstd.compress``. Returns opaque bytes safe to publish via
-        ``MissionTransport``.
+        Order: ``model_dump()`` → coerce ``UUID`` → ``str`` →
+        ``msgpack.packb`` → ``zstd.compress``. Returns opaque bytes
+        safe to publish via ``MissionTransport``.
+
+        Implementation note: the v1 codec uses
+        ``model_dump()`` (Python mode), not ``model_dump(mode="json")``.
+        Reason: pydantic v2.13's ``mode="json"`` for ``bytes`` fields
+        tries to UTF-8 decode the bytes (instead of base64-encoding),
+        which raises ``UnicodeDecodeError`` on any non-UTF-8 payload
+        (msgpack bytes are never valid UTF-8). Python mode keeps
+        ``bytes`` as ``bytes`` and ``UUID`` as ``UUID``; the explicit
+        coercion below maps ``UUID`` → ``str`` so msgpack can
+        serialize it. The round-trip on ``unpack`` is symmetric:
+        ``model_validate`` accepts ``str`` for a ``UUID`` field.
         """
-        # model_dump(mode="json") coerces UUID → str and bytes → base64 str.
-        as_dict = self._dto.model_dump(mode="json")
+        as_dict = self._dto.model_dump()
+        # Coerce UUID → str so msgpack can serialize it.
+        as_dict["idempotency_key"] = str(as_dict["idempotency_key"])
         packed = msgpack.packb(as_dict, use_bin_type=True)
         compressed = zstd.ZstdCompressor().compress(packed)
         return compressed
