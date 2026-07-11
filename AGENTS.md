@@ -435,6 +435,9 @@ Maintain this board. When a phase freezes, add one line here and set its spec ST
 | 39 | `docs/101_PHASE_39_WORKFLOW_GRAPH_ENGINE_SPECIFICATION.md` | ✅ FROZEN (2026-07-06) | 1208 passed |
 | 40 | `docs/102_PHASE_40_EVENT_BUS_REACTIVE_ARCHITECTURE_SPECIFICATION.md` | ✅ FROZEN (2026-07-06) | 1215 passed |
 | 41 | `docs/103_PHASE_41_CAPABILITY_REGISTRY_SPECIFICATION.md` | ✅ FROZEN (2026-07-06) | 60 passed (1215 total) |
+| 42 | `docs/104_PHASE_42_IDENTITY_ENGINE_SPECIFICATION.md` | ✅ FROZEN (2026-07-06) | 44 passed (1259 total) |
+| 43 | `docs/105_PHASE_43_GOAL_ENGINE_SPECIFICATION.md` | ✅ FROZEN (2026-07-06) | (no new tests; spec freeze) |
+| 44 | `docs/106_PHASE_44_MISSION_SCHEDULER_SPECIFICATION.md` | ✅ FROZEN (2026-07-06, v1.1 per CR-001 2026-07-10) | (no new tests; v1.1 amendment) |
 
 
 

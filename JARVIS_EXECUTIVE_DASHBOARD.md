@@ -11,12 +11,12 @@
 ```
 Project:        JARVIS OS (Autonomous AI Employee Operating System)
 Started:        2026-02 (approx)
-Current Phase:  41 (Capability Registry — FROZEN 2026-07-06)
-Current Status: ✅ 0.9.4 SHIPPED to main; CR-002 + CR-003 + CR-004 + CR-005 all merged; no premature tag (fold into 0.9.4 natural boundary)
+Current Phase:  44 (Mission Scheduler — FROZEN 2026-07-06, v1.1 per CR-001 2026-07-10)
+Current Status: ✅ 0.9.4 SHIPPED to main at `ce8ebdb`; CR-001 + CR-002 + CR-003 + CR-004 + CR-005 all merged; no premature tag (fold into 0.9.4 natural boundary)
 Overall %:      ~100% (Core Architecture Complete)
 Blockers:       None active
-Next Phase:     Phase 42 (Identity) — FROZEN 2026-07-06 (per AGENTS.md §12)
-Next Release:   0.9.4 (CR-002 / CR-003 / CR-004 / CR-005 are all on main at `506e275`; tag at 0.9.4's natural release boundary)
+Next Phase:     Phase 45 (Persistent Autonomous Runtime, Goal #6) — in development; pre-work on branch `wt/5a39ff05` (TransportEnvelope Protocol) and `wt/5432577e` (auth admin recovery); both branches currently orphaned (working trees gone; branch refs only)
+Next Release:   0.9.4 (CR-001 / CR-002 / CR-003 / CR-004 / CR-005 are all on main at `ce8ebdb`; tag at 0.9.4's natural release boundary — architect decision pending)
 ```
 
 ---
@@ -52,9 +52,13 @@ Next Release:   0.9.4 (CR-002 / CR-003 / CR-004 / CR-005 are all on main at `506
 | 36    | [docs/98](../jarvis/docs/98_PHASE_36_SWARM_INTELLIGENCE_SPECIFICATION.md) | ✅ FROZEN | 100% | 1136 | 2026-07-05 |
 | 37    | [docs/99](../jarvis/docs/99_PHASE_37_BRAIN_KERNEL_SPECIFICATION.md) | ✅ FROZEN | 100% | 1136 | 2026-07-05 |
 | 38    | [docs/100](../jarvis/docs/100_PHASE_38_UNIFIED_MEMORY_SPECIFICATION.md) | ✅ FROZEN | 100% | 1164 | 2026-07-05 |
-| 39    | [docs/101](../jarvis/docs/101_PHASE_39_WORKFLOW_GRAPH_ENGINE_SPECIFICATION.md) | ✅ FROZEN | 100% | 1208 | 2026-07-06 |
-| 40    | [docs/102](../jarvis/docs/102_PHASE_40_EVENT_BUS_REACTIVE_ARCHITECTURE_SPECIFICATION.md) | ✅ FROZEN | 100% | 1215 | 2026-07-06 |
-| 41    | [docs/103](../jarvis/docs/103_PHASE_41_CAPABILITY_REGISTRY_SPECIFICATION.md) | ✅ FROZEN | 100% | 1215 | 2026-07-06 |
+| 39 | [docs/101](../jarvis/docs/101_PHASE_39_WORKFLOW_GRAPH_ENGINE_SPECIFICATION.md) | ✅ FROZEN | 100% | 1208 | 2026-07-06 |
+| 40 | [docs/102](../jarvis/docs/102_PHASE_40_EVENT_BUS_REACTIVE_ARCHITECTURE_SPECIFICATION.md) | ✅ FROZEN | 100% | 1215 | 2026-07-06 |
+| 41 | [docs/103](../jarvis/docs/103_PHASE_41_CAPABILITY_REGISTRY_SPECIFICATION.md) | ✅ FROZEN | 100% | 1215 | 2026-07-06 |
+| 42 | [docs/104](../jarvis/docs/104_PHASE_42_IDENTITY_ENGINE_SPECIFICATION.md) | ✅ FROZEN | 100% | 1259 | 2026-07-06 |
+| 43 | [docs/105](../jarvis/docs/105_PHASE_43_GOAL_ENGINE_SPECIFICATION.md) | ✅ FROZEN | 100% | 1259 | 2026-07-06 |
+| 44 | [docs/106](../jarvis/docs/106_PHASE_44_MISSION_SCHEDULER_SPECIFICATION.md) | ✅ FROZEN (v1.1 per CR-001 2026-07-10) | 100% | 1259 | 2026-07-06 |
+| 45 | (in development, Goal #6) | 🟡 IN DEVELOPMENT | — | — | — |
 
 ---
 
@@ -80,13 +84,10 @@ Layer 5 — Autonomous OS:       ██████████ 100%  (Self-heal
 | 2 | **Phase 40** | Event Bus & Reactive Architecture | L3 (Core) | ✅ FROZEN |
 | 3 | **Phase 41** | Capability Registry | L3 (Core) | ✅ FROZEN |
 | 4 | **0.9.4** | Runtime Hotfix Release (CR-002 + CR-003 + CR-004 + CR-005) | L1 (Core) | ✅ SHIPPED (commit `506e275` on `origin/main`; ready for tag at natural boundary) |
-| 5 | **Phase 42** | Identity & Goal Engine | L3 (Brain) | 📋 PLANNED |
-| 6 | **Phase 43** | Experience Engine | L3 (Memory) | 📋 PLANNED |
-| 7 | **Phase 44** | Observability Platform | L4 (Ops) | 📋 PLANNED |
-| 8 | **Phase 45** | Plugin & Skill Marketplace | L1 (Ext) | 📋 PLANNED |
-| 9 | **Phase 46** | Voice, Vision & Multimodal Layer | L4 (UI) | 📋 PLANNED |
-| 10 | **Phase 47** | Distributed Intelligence | L5 (Scale) | 📋 PLANNED |
-| 11 | **Phase 48** | Self-Improvement Engine | L5 (Self) | 📋 PLANNED |
+| 5 | **Phase 45** | Persistent Autonomous Runtime (Goal #6) | L1 (Core) | 🟡 IN DEVELOPMENT (pre-work on `wt/5a39ff05`, `wt/5432577e`) |
+| 6 | **Phase 46** | (planned, post-Phase 45) | L1 (Core) | 📋 PLANNED |
+| 7 | **Phase 47** | (planned) | L4 (Ops) | 📋 PLANNED |
+| 8 | **Phase 48** | (planned) | L1 (Ext) | 📋 PLANNED |
 
 ### 4.1 Active CRs
 
