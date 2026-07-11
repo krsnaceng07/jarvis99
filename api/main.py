@@ -32,6 +32,7 @@ from api.routes import (
     agent,
     auth,
     capabilities,
+    distributed_pool,
     federation,
     federation_scale,
     goal,
@@ -168,6 +169,7 @@ def create_app() -> FastAPI:
     app.include_router(identity.router, prefix="/api/v1")
     app.include_router(goal.router, prefix="/api/v1")
     app.include_router(mission_scheduler.router, prefix="/api/v1")
+    app.include_router(distributed_pool.router, prefix="/api/v1")
 
     # 5. Mount WebSocket telemetry endpoint under /ws/v1
     app.include_router(stream_service.router, prefix="/ws/v1")

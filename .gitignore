@@ -195,3 +195,7 @@ JARVIS_CAPABILITY_MATRIX.json
 # Server startup error log — captured from background uvicorn launches
 # during ad-hoc validation. Not a log we want in the repo.
 startup.err
+
+# Phase 45 M6.4.A test artifacts
+test_worker_proc_*.db
+test_router_*.db
