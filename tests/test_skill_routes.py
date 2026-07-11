@@ -104,7 +104,11 @@ def client() -> tuple[TestClient, _FakeRegistry, _FakeInstaller]:
     installer = _FakeInstaller(registry)
 
     app = FastAPI()
-    app.include_router(router)
+    # Phase 18 spec: routes are mounted under /api/v1/skills in production
+    # (api/main.py:158). Mirror that prefix here so the route table resolves
+    # cleanly; the empty-path list_skills route cannot be mounted with a bare
+    # include_router (FastAPI rejects prefix+path both empty).
+    app.include_router(router, prefix="/api/v1/skills")
 
     app.dependency_overrides[_get_installer] = lambda: installer
     app.dependency_overrides[_get_registry] = lambda: registry
@@ -123,7 +127,7 @@ def client() -> tuple[TestClient, _FakeRegistry, _FakeInstaller]:
 class TestInstallEndpoint:
     def test_install_returns_201(self, client: tuple) -> None:
         http, _, _ = client
-        response = http.post("/install?skill_name=testskill")
+        response = http.post("/api/v1/skills/install?skill_name=testskill")
         assert response.status_code == 201
         body = response.json()
         assert body["success"] is True
@@ -131,7 +135,7 @@ class TestInstallEndpoint:
 
     def test_install_delegates_to_installer(self, client: tuple) -> None:
         http, _, installer = client
-        http.post("/install?skill_name=myskill")
+        http.post("/api/v1/skills/install?skill_name=myskill")
         assert "myskill" in installer._installed
 
 
@@ -148,13 +152,13 @@ class TestRemoveEndpoint:
                 capabilities=[],
             )
         )
-        response = http.post("/remove?skill_name=todelete")
+        response = http.post("/api/v1/skills/remove?skill_name=todelete")
         assert response.status_code == 200
         assert response.json()["success"] is True
 
     def test_remove_nonexistent_returns_404(self, client: tuple) -> None:
         http, _, _ = client
-        response = http.post("/remove?skill_name=ghost")
+        response = http.post("/api/v1/skills/remove?skill_name=ghost")
         assert response.status_code == 404
 
 
@@ -171,13 +175,13 @@ class TestListEndpoint:
                 capabilities=[],
             )
         )
-        response = http.get("/")
+        response = http.get("/api/v1/skills")
         assert response.status_code == 200
         assert response.json()["data"]["total"] == 1
 
     def test_list_empty(self, client: tuple) -> None:
         http, _, _ = client
-        response = http.get("/")
+        response = http.get("/api/v1/skills")
         assert response.status_code == 200
         assert response.json()["data"]["total"] == 0
 
@@ -195,13 +199,13 @@ class TestSearchEndpoint:
                 capabilities=["youtube.video.search"],
             )
         )
-        response = http.get("/search?q=youtube.video.search")
+        response = http.get("/api/v1/skills/search?q=youtube.video.search")
         assert response.status_code == 200
         assert response.json()["data"]["total"] == 1
 
     def test_search_no_match(self, client: tuple) -> None:
         http, _, _ = client
-        response = http.get("/search?q=nonexistent.cap")
+        response = http.get("/api/v1/skills/search?q=nonexistent.cap")
         assert response.status_code == 200
         assert response.json()["data"]["total"] == 0
 
@@ -219,13 +223,13 @@ class TestGetSkillEndpoint:
                 capabilities=[],
             )
         )
-        response = http.get("/known")
+        response = http.get("/api/v1/skills/known")
         assert response.status_code == 200
         assert response.json()["data"]["id"] == "known"
 
     def test_get_nonexistent_returns_404(self, client: tuple) -> None:
         http, _, _ = client
-        response = http.get("/ghost")
+        response = http.get("/api/v1/skills/ghost")
         assert response.status_code == 404
 
 
