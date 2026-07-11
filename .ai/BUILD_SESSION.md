@@ -1,10 +1,10 @@
 # BUILD SESSION
 
-**Task:** Phase 45 / M6.4 (Distributed Execution)
-**Branch:** `phase45/transport`
-**Status:** Active — M6.4 sub-stream COMPLETE (A + A report lift + B.1 + B.2 + governance + B code-completion + C); all 7 sub-milestones pass their gates; ready to merge to `main`
+**Task:** Phase 45 / M6.4 (Distributed Execution) — **MERGED 2026-07-11 20:03 NPT**
+**Branch:** `main` (HEAD `0b9f1bf` — the M6.4 sub-stream merge commit)
+**Status:** Closed — M6.4 sub-stream (9 commits: A + A report lift + B.1 + B.2 + governance + B code-completion + C + bookkeeping + pre-merge doc refresh) merged to `main` with `--no-ff` (release-boundary push policy 2026-07-10). Post-merge full-suite regression: **2041 passed / 2 skipped / 0 failed** (zero regression vs 1761 main baseline; +280 net new from M6.4).
 
-**Completed in this lineage (highest-level summary):**
+**Completed (highest-level summary):**
 - M6.4.A: `MissionTransport` Protocol + `LocalTransport` + `WorkerRegistry` + `DistributedRouter` scaffold + `WorkerProcess` CLI + `/api/v1/distributed/*` REST routes + DB models. 168 new tests.
 - M6.4.A report lift: doc-only commit `eb54911` brings the M6.4.A milestone report from `wt/5a39ff05` so the freeze protocol (AGENTS.md §10) can recognise the M6.4.A gate as documented. Required for `phase45/transport` → `main` merge per RESUME_STATE.md.
 - M6.4.B.1: `TransportEnvelope` Protocol + `EnvelopeV1` codec (D-5 wire-format layer; msgpack+zstd; forward-compat `extra='ignore'`).
@@ -22,8 +22,12 @@
   - 33 new tests in `tests/test_leader_election.py` across 14 classes (412% of plan §3 floor of ≥ 8). Includes split-brain simulations (2 candidates, 3 candidates) and cross-client Redis path (fakeredis).
   - Single-DC scope per spec §10; multi-region is 6.6 future goal.
   - Quality gates: 2041 passed / 2 skipped / 0 failed (+33 net new); ruff + mypy clean.
+- Pre-merge doc refresh (commit `aef2721`): AGENTS.md §12 row 45 → STAGED for v0.10.0; JARVIS_EXECUTIVE_DASHBOARD.md refreshed; `docs/releases/RELEASE_0.10.0_PREP_PHASE_45_M6_4_SUBSTREAM.md` (NEW — 12-section milestone report).
+- Merge to `main` (commit `0b9f1bf`): `git merge --no-ff phase45/transport` — preserves the M6.4 sub-stream as a named branch in the merge commit (per `docs/44_GIT_WORKFLOW.md`).
+- Post-merge full-suite regression (2026-07-11 20:08 NPT, this session): 2041 passed / 2 skipped / 0 failed; ruff + mypy clean; A-1 invariant AST-verified.
 
-**Pending (next action):**
-- **M6.4 sub-stream merge to `main`** — held for architect approval per AGENTS.md §1 rank-5 → rank-2 transition. Branch contains 7 commits (M6.4.A + report lift + B.1 + B.2 + governance + B code-completion + C); all gates ✅. Per AGENTS.md §5 / §10, before merge: refresh AGENTS.md §12 row 45 + dashboard, run full-suite regression on the merge result.
-- **Other Phase 45 sub-milestones** — M6.1.A/B (MissionActor rehydration), M6.2.A/B (Scheduler), M6.3.A/B (Crash recovery), M6.5.A/B (Observability) — separate branches off `wt/5a39ff05` lineage (where M6.1.A already lives). Do NOT branch off `phase45/transport`.
+**Pending (next action — architect decision required):**
+- **Other Phase 45 sub-milestones** — M6.1.A/B (MissionActor rehydration), M6.2.A/B (Scheduler), M6.3.A/B (Crash recovery), M6.5.A/B (Observability) — separate branches off `wt/5a39ff05` lineage (where M6.1.A already lives). Do NOT branch off `main` post-merge.
+- **FINAL v0.10.0 freeze gate** — HELD until M6.1.B + M6.2.A/B + M6.3.A/B + M6.5.A/B all pass individually per `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` §3 + §8 STOP.
+- **Push to `origin/main`** — `main` is 10 commits ahead of `origin/main`; held for architect approval (no force-push).
 - **LeaderElection ↔ DistributedRouter integration** — wiring `LeaderElection` to elect a single active `DistributedRouter` instance is a future sub-milestone. M6.4.C ships the primitive + tests; the integration is its own gate when M6.4 streams into a multi-leader deployment.

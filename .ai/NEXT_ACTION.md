@@ -1,23 +1,28 @@
 # NEXT ACTION
 
-**Step-by-step (M6.4 sub-stream merge to `main`):**
+**Status (2026-07-11 20:08 NPT):** M6.4 sub-stream MERGED to `main` at `0b9f1bf`; post-merge full-suite regression GREEN (2041 passed / 2 skipped / 0 failed). State-file refresh in progress.
 
-1. Read AGENTS.md §1 rank-5 → rank-2 transition rule + `docs/44_GIT_WORKFLOW.md` (merge strategy + conventional commit format).
-2. Refresh AGENTS.md §12 row 45: change from "🔨 IN DEVELOPMENT on `phase45/transport`" to "🟨 STAGED for v0.10.0 (M6.4 sub-stream landed, awaiting FINAL gate)" and bump the test count to 2041.
-3. Refresh JARVIS_EXECUTIVE_DASHBOARD.md: Phase 45 row reflects M6.4 sub-stream closure.
-4. Add a CHANGELOG entry: "v0.10.0-prep / M6.4 sub-stream — Distributed execution scaffold (MissionTransport + LocalTransport + RemoteTransport over Redis + DistributedRouter + EnvelopeV1 + LeaderElection); spec v1.2 FROZEN-amended under CR-1/2/3/4; 7 commits on `phase45/transport`; 2041 tests passing".
-5. On `main` (architect's session): `git merge --no-ff phase45/transport` (preserves the M6.4 sub-stream as a named branch in the merge commit). Merge commit message: `chore(release): merge M6.4 distributed execution to main (Phase 45 v0.10.0-prep)`.
-6. Run full-suite regression on `main` post-merge: `pytest tests/ -q --tb=short -p no:cacheprovider` — expect 2041 passed / 2 skipped / 0 failed.
-7. Per AGENTS.md §10, emit a final post-merge summary message and STOP (do not auto-pick-up the next Phase 45 sub-milestone).
+**Pending architect decision (per AGENTS.md §1 rank-5 → rank-2):**
 
-**Step-by-step (alternative — if architect pivots to M6.1.B, M6.3.A, M6.5.A, M6.2.A/B, or main housekeeping):**
+- **Pick the next Phase 45 sub-milestone** — recommended order per `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` §2 (foundational → feature → observability):
+  1. **M6.1.B** — MissionManager rehydration + kill-resume E2E. Branch off `wt/5a39ff05` (where M6.1.A lives). Next required foundational sub-milestone per plan §2.
+  2. **M6.3.A** — MissionRecoveryManager + orphan detection + replay. Branch off `wt/5a39ff05`. Crash-recovery milestone.
+  3. **M6.2.A** — ScheduledMissionDispatcher + triggers table. Branch off `wt/5a39ff05`. Scheduler milestone.
+  4. **M6.5.A** — Mission dashboard views + REST endpoint. Branch off `wt/5a39ff05`. Observability milestone.
+  5. **Push `main` → `origin/main`** — `main` is 10 commits ahead of `origin/main`. Standard push (`git push origin main`), no force. Held for architect approval.
+  6. **Hold all sub-milestones; start FINAL v0.10.0 prep work** — FULL gate is HELD until M6.1.B + M6.2.A/B + M6.3.A/B + M6.5.A/B all pass per plan §8 STOP. So FINAL cannot close until at least the foundational sub-milestones land.
 
-- For M6.4 merge + M6.1.B in parallel: do the merge first (steps above), then open the M6.1.B branch off `main` (post-merge) so M6.1.B doesn't carry M6.4 work in its history.
-- For M6.1.B without M6.4 merge: open a fresh branch off `wt/5a39ff05` lineage (where M6.1.A already exists). Do NOT branch off `phase45/transport`.
-- For pivot to a different sub-milestone entirely: wait for architect decision. Do not start new work without explicit go.
+**Step-by-step (post-merge state refresh — in progress this session):**
 
-**Architect decision required (per AGENTS.md §1 rank-5 → rank-2):**
+1. ✅ Refresh AGENTS.md §12 row 45 to "🟨 STAGED for v0.10.0-prep (M6.4 sub-stream MERGED at `0b9f1bf`)".
+2. ⏳ Update `.ai/FREEZE_LEDGER.md` "Updated" footer to 2026-07-11 20:08 NPT (post-merge).
+3. ⏳ Update `.ai/ACTION_LOG.md` with 2026-07-11 20:08 NPT entry recording the merge + post-merge regression.
+4. ⏳ Update `.ai/TASK_QUEUE.md` to reflect M6.4 merge closure.
+5. ⏳ Commit the post-merge state refresh as a single chore commit on `main`.
+6. ⏳ Emit a final post-merge summary message and STOP (do not auto-pick-up the next Phase 45 sub-milestone).
 
-- ✅ **Approve merge of `phase45/transport` → `main`** — M6.4 sub-stream lands on main; Phase 45 row 45 in AGENTS.md §12 becomes STAGED.
-- **Hold merge, pivot to M6.1.B in parallel** — M6.4 work stays on the branch; M6.1.B opens off `wt/5a39ff05`. (Per the user's "release-boundary push" preference, the merge path is recommended.)
-- **Hold merge + M6.4.C follow-up** — the M6.4.C ↔ DistributedRouter integration is a future sub-milestone; do not block the merge on it.
+**Step-by-step (next sub-milestone, when architect calls it):**
+
+- For **M6.1.B** (recommended next): open a fresh branch off `wt/5a39ff05` lineage (`git checkout -b phase45/m61b-rehydration wt/5a39ff05`). Do NOT branch off `main` post-merge — keep the M6.1.* work stream on the wt/5a39ff05 lineage that authored M6.1.A.
+- For **M6.3.A / M6.2.A / M6.5.A**: same pattern — fresh branch off `wt/5a39ff05` lineage. The M6.4 work on `main` does not need to be in the M6.x history.
+- For **FINAL v0.10.0 freeze gate**: held until all foundational sub-milestones (M6.1.B + M6.2.A/B + M6.3.A/B + M6.5.A/B) pass per plan §8 STOP.

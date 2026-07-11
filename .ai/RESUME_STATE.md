@@ -2,25 +2,18 @@
 
 *Rule: Start execution EXACTLY from this point if resuming.*
 
-**Resume From:** `phase45/transport` commit `fff4daa` (post-M6.4.C closure)
-**Resume Function:** M6.4 sub-stream COMPLETE (A + A report lift + B.1 + B.2 + B code-completion + C). Next action is the M6.4 sub-stream merge to `main` (architect approval required per AGENTS.md §1 rank-5 → rank-2).
+**Resume From:** `main` commit `0b9f1bf` (M6.4 sub-stream MERGED 2026-07-11 20:03 NPT; post-merge full-suite regression GREEN 2041 passed / 2 skipped / 0 failed)
+**Resume Function:** M6.4 sub-stream MERGED to `main` with `--no-ff` (release-boundary push policy 2026-07-10). All M6.4 sub-milestones (A + A report lift + B.1 + B.2 + governance + B code-completion + C) pass their gates. Phase 45 row 45 in AGENTS.md §12 is bumped to "🟨 STAGED for v0.10.0-prep". FINAL v0.10.0 tag is HELD until M6.1.B + M6.2.A/B + M6.3.A/B + M6.5.A/B all pass individually per `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` §3 + §8 STOP.
 **Resume File:** N/A
 
-**If architect says "merge phase45/transport to main":**
-- The 7-commit sub-stream is ready to merge: M6.4.A (`1401b81`) + M6.4.A report lift (`eb54911`) + M6.4.B.1 (`1401b81`) + M6.4.B.2 (`337ca64`) + M6.4 governance retrofit (`7e53c69`) + M6.4.B code-completion (`0e1b593`) + M6.4.C (`fff4daa`). All gates ✅.
-- Per AGENTS.md §10, before merge:
-  1. Refresh AGENTS.md §12 (Phase 45 row) to reflect the M6.4 sub-stream status. Test count on the branch: **2041 passed / 2 skipped / 0 failed**.
-  2. Refresh JARVIS_EXECUTIVE_DASHBOARD.md.
-  3. Run the full-suite regression on the merge result (locally: `pytest tests/ -q --tb=short -p no:cacheprovider`).
-  4. Use `--no-ff` to preserve the M6.4 sub-stream as a named branch in the merge commit (per `docs/44_GIT_WORKFLOW.md`).
-  5. Update FREEZE_LEDGER's "Updated" footer to the merge date; bump AGENTS.md §12 row 45 from "IN DEVELOPMENT" to a release-bound (e.g. "🟨 STAGED" or v0.10.0-prep, depending on whether FINAL gate passes).
-
 **If architect says "pivot to M6.1.B (MissionManager rehydration + kill-resume E2E)":**
-- Open a fresh branch off `wt/5a39ff05` (where M6.1.A already landed). Do NOT branch off `phase45/transport` — keep the M6.4 work stream clean. Per the plan §2 sequence, M6.1.B is the next required foundational sub-milestone.
-- The M6.4 work stays on `phase45/transport` until merge; M6.1.B progress in parallel on a separate branch.
+- Open a fresh branch off `wt/5a39ff05` (where M6.1.A already landed). Do NOT branch off `main` post-merge for M6.1.B's lineage — keep the M6.1.* work stream on the wt/5a39ff05 lineage that authored M6.1.A, so rehydration integration tests have a clean baseline. Per the plan §2 sequence, M6.1.B is the next required foundational sub-milestone.
 
-**If architect says "ship M6.4 to main AND start M6.1.B in parallel":**
-- M6.4 merge first (steps above), then open the M6.1.B branch off `main` (post-merge) so M6.1.B doesn't carry M6.4 work in its history.
+**If architect says "pivot to M6.3.A (MissionRecoveryManager + orphan detection + replay)":**
+- Open a fresh branch off `wt/5a39ff05` lineage (where the M6.1.* state machine + 8-event taxonomy live). Do NOT branch off `main` — the M6.3 work references the FROZEN state machine that lives on the wt/5a39ff05 lineage.
+
+**If architect says "push `main` to `origin/main`":**
+- `main` is 10 commits ahead of `origin/main`. Force-push is forbidden; `git push origin main` is the standard push (no force). The 10 unpushed commits include the M6.4 merge (0b9f1bf) and the post-merge state-file refresh (this commit, TBD).
 
 **If architect says "merge M6.4 + immediately pick up FINAL (v0.10.0 freeze gate)":**
-- The FINAL milestone per plan §3 is the v0.10.0 freeze gate — full quality gate + walkthrough + AGENTS.md §12 bump. After M6.4 merges, the only open sub-milestones would be M6.1.B, M6.2.A/B, M6.3.A/B, M6.5.A/B. The FINAL gate is held until ALL preceding milestones pass (per plan §8 STOP). So FINAL cannot be closed until at least the plan-§2 foundational milestones (M6.1.B, M6.3.A/B, M6.2.A/B, M6.5.A/B) also land. This is a longer-horizon plan.
+- The FINAL milestone per plan §3 is the v0.10.0 freeze gate — full quality gate + walkthrough + AGENTS.md §12 bump. After M6.4 merges, the only open sub-milestones are M6.1.B, M6.2.A/B, M6.3.A/B, M6.5.A/B. The FINAL gate is held until ALL preceding milestones pass (per plan §8 STOP). FINAL cannot be closed until at least the plan-§2 foundational milestones (M6.1.B, M6.3.A/B, M6.2.A/B, M6.5.A/B) also land. This is a longer-horizon plan.
