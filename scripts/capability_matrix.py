@@ -503,9 +503,9 @@ def default_specs() -> List[ProbeSpec]:
             capability="skills.list",
             category="Skills",
             method="GET",
-            path="/api/v1/skills",
+            path="/api/v1/skills/",
             requires_auth=True,
-            notes="Phase 18 spec: GET /api/v1/skills (no trailing slash)",
+            notes="Phase 18 spec: GET /api/v1/skills/ (trailing slash, CR-002)",
         ),
         # ---- Identity / Goal ----
         ProbeSpec(
