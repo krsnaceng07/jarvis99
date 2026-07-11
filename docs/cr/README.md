@@ -23,11 +23,11 @@ Plan, or for triggering any spec/plan-vs-code reconciliation.
 | CR-1 | Spec §4.3 line 430 `state=ORPHANED` typo alignment | DRAFT | `docs/107_PHASE_45_PERSISTENT_AUTONOMOUS_RUNTIME_SPECIFICATION.md` |
 | CR-2 | Plan §3 amendments (filename + path typos) — M6.4.A renumbering, `core/mission/` vs `core/runtime/` per spec §3 | DRAFT | `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` |
 | CR-3 | Phase 26 `agent_loop_journals.wave_run_id` additive column (Phase 46 candidate) | DRAFT | `core/runtime/recovery_manager.py` (Phase 26 FROZEN) — additive only |
-| CR-4 | Phase 45 spec §6.4 addendum: **D-4** (runtime idempotency — was review D-2) + **D-5** (versioned transport envelope — was review D-3). Resolves labeling collision with already-adopted D-2/D-3 (M6.4.A). | DRAFT | `docs/107_PHASE_45_PERSISTENT_AUTONOMOUS_RUNTIME_SPECIFICATION.md` §6.4 + `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` §3 M6.4.B + new `core/mission/transports/envelope.py` |
+| CR-4 | Phase 45 spec §6.4 addendum: **D-4** (runtime idempotency — was review D-2) + **D-5** (versioned transport envelope — was review D-3). Resolves labeling collision with already-adopted D-2/D-3 (M6.4.A). | **APPROVED** (2026-07-09, architect verdict — see CR-4 §9 approval signature) | `docs/107_PHASE_45_PERSISTENT_AUTONOMOUS_RUNTIME_SPECIFICATION.md` §6.4 + `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` §3 M6.4.B + new `core/mission/transports/envelope.py` |
 
 ## Origin
 
-These three CRs originate from the M6.3.A + M6.3.B gate (commit `c4d83da`,
+These four CRs originate from the M6.3.A + M6.3.B gate (commit `c4d83da`,
 2026-07-08) where the architect delegated approval authority to the agent
 (`Mavis`) with explicit "future-proof + safe" mandate. Each CR captures a
 **specification drift** already corrected at the code layer via

@@ -1,6 +1,6 @@
 # JARVIS Platform — Executive Progress Dashboard
 
-**Last updated:** 2026-07-11 16:47 NPT (Post-CR-004 + CR-005: 0.9.4 SHIPPED to main; 2 pre-existing flakes resolved)
+**Last updated:** 2026-07-11 17:55 NPT (Post-M6.4 governance retrofit on `phase45/transport`; 0.9.4 SHIPPED on `main`; awaiting architect decision on M6.4.B code-completion)
 **Owner:** Architect (user)
 **Authority:** [AGENTS.md v1.0](file:///e:/jarvis/AGENTS.md) (non-authoritative tracking document; mirrors AGENTS.md §12 + phase milestone reports)
 
@@ -11,12 +11,12 @@
 ```
 Project:        JARVIS OS (Autonomous AI Employee Operating System)
 Started:        2026-02 (approx)
-Current Phase:  41 (Capability Registry — FROZEN 2026-07-06)
-Current Status: ✅ 0.9.4 SHIPPED to main; CR-002 + CR-003 + CR-004 + CR-005 all merged; no premature tag (fold into 0.9.4 natural boundary)
-Overall %:      ~100% (Core Architecture Complete)
+Current Phase:  45 (Persistent Autonomous Runtime — IN DEVELOPMENT on phase45/transport)
+Current Status: 🔨 M6.4.A + M6.4.B.1 + M6.4.B.2 landed on phase45/transport; spec v1.2 / plan v1.1 / CR-4 retrofitted (commit 7e53c69); M6.4.B code-completion gap open
+Overall %:      ~100% (Core Architecture Complete; Phase 45 in flight)
 Blockers:       None active
-Next Phase:     Phase 42 (Identity) — FROZEN 2026-07-06 (per AGENTS.md §12)
-Next Release:   0.9.4 (CR-002 / CR-003 / CR-004 / CR-005 are all on main at `506e275`; tag at 0.9.4's natural release boundary)
+Next Decision:  Architect — M6.4.B code-completion (REMOTE_PREFERRED + WorkerRegistry task tracking) vs. M6.4.C stretch vs. pivot
+Next Release:   0.9.4 SHIPPED at ce8ebdb; tag at next natural release boundary (no premature hotfix tag per release-boundary push policy)
 ```
 
 ---
@@ -55,6 +55,10 @@ Next Release:   0.9.4 (CR-002 / CR-003 / CR-004 / CR-005 are all on main at `506
 | 39    | [docs/101](../jarvis/docs/101_PHASE_39_WORKFLOW_GRAPH_ENGINE_SPECIFICATION.md) | ✅ FROZEN | 100% | 1208 | 2026-07-06 |
 | 40    | [docs/102](../jarvis/docs/102_PHASE_40_EVENT_BUS_REACTIVE_ARCHITECTURE_SPECIFICATION.md) | ✅ FROZEN | 100% | 1215 | 2026-07-06 |
 | 41    | [docs/103](../jarvis/docs/103_PHASE_41_CAPABILITY_REGISTRY_SPECIFICATION.md) | ✅ FROZEN | 100% | 1215 | 2026-07-06 |
+| 42    | [docs/104](../jarvis/docs/104_PHASE_42_IDENTITY_ENGINE_SPECIFICATION.md) | ✅ FROZEN | 100% | 1259 | 2026-07-06 |
+| 43    | [docs/105](../jarvis/docs/105_PHASE_43_GOAL_ENGINE_SPECIFICATION.md) | ✅ FROZEN | 100% | 1259 | 2026-07-06 |
+| 44    | [docs/106](../jarvis/docs/106_PHASE_44_MISSION_SCHEDULER_SPECIFICATION.md) | ✅ FROZEN | 100% | 1259 | 2026-07-06 |
+| 45    | [docs/107](../jarvis/docs/107_PHASE_45_PERSISTENT_AUTONOMOUS_RUNTIME_SPECIFICATION.md) v1.2 | 🔨 IN DEVELOPMENT | M6.4 partial | 1985 on branch | — |
 
 ---
 
@@ -65,10 +69,10 @@ Layer 1 — Foundation:          ██████████ 100%  (Docs, Arc
 Layer 2 — Engineering Tools:   ██████████ 100%  (Linter, DGV, Governance. Phase 19 frozen)
 Layer 3 — Real AI Runtime:     ██████████ 100%  (Brain: Memory, Graph, Orchestrator, Planner)
 Layer 4 — User Runtime:        ██████████ 100%  (CLI, Desktop, Voice, API, Observability)
-Layer 5 — Autonomous OS:       ██████████ 100%  (Self-healing, Multi-agent session recovery)
+Layer 5 — Autonomous OS:       █████████░  ~92%  (Phase 45 in flight: M6.4 Distributed Execution — A + B.1 + B.2 done; B code-completion + C stretch + M6.1/2/3/5 open)
 ```
 
-**Overall Product Completion:** 100% (Core Swarm Runtime & Gateway Observability Complete)
+**Overall Product Completion:** ~98% (Phase 45 in flight; goal is 100% when sub-milestones M6.1 through M6.5 freeze individually)
 
 ---
 
@@ -76,26 +80,27 @@ Layer 5 — Autonomous OS:       ██████████ 100%  (Self-heal
 
 | Order | Milestone | Type | Target Layer | Status |
 |-------|-----------|------|--------------|--------|
-| 1 | **Phase 39** | Workflow Graph Engine | L3 (Workflow) | ✅ FROZEN |
-| 2 | **Phase 40** | Event Bus & Reactive Architecture | L3 (Core) | ✅ FROZEN |
-| 3 | **Phase 41** | Capability Registry | L3 (Core) | ✅ FROZEN |
-| 4 | **0.9.4** | Runtime Hotfix Release (CR-002 + CR-003 + CR-004 + CR-005) | L1 (Core) | ✅ SHIPPED (commit `506e275` on `origin/main`; ready for tag at natural boundary) |
-| 5 | **Phase 42** | Identity & Goal Engine | L3 (Brain) | 📋 PLANNED |
-| 6 | **Phase 43** | Experience Engine | L3 (Memory) | 📋 PLANNED |
-| 7 | **Phase 44** | Observability Platform | L4 (Ops) | 📋 PLANNED |
-| 8 | **Phase 45** | Plugin & Skill Marketplace | L1 (Ext) | 📋 PLANNED |
-| 9 | **Phase 46** | Voice, Vision & Multimodal Layer | L4 (UI) | 📋 PLANNED |
-| 10 | **Phase 47** | Distributed Intelligence | L5 (Scale) | 📋 PLANNED |
-| 11 | **Phase 48** | Self-Improvement Engine | L5 (Self) | 📋 PLANNED |
+| 1 | **Phase 42** | Identity & Goal Engine | L3 (Brain) | ✅ FROZEN |
+| 2 | **Phase 43** | Experience Engine | L3 (Memory) | ✅ FROZEN |
+| 3 | **Phase 44** | Mission Scheduler | L4 (Ops) | ✅ FROZEN |
+| 4 | **0.9.4** | Runtime Hotfix Release (CR-002 + CR-003 + CR-004 + CR-005) | L1 (Core) | ✅ SHIPPED on `main` at `ce8ebdb`; tag at next natural release boundary |
+| 5 | **Phase 45 / M6.4** | Distributed Execution (transport + router + worker registry) | L5 (Scale) | 🔨 A + B.1 + B.2 landed; governance retrofitted at `7e53c69`; B code-completion + C stretch open |
+| 6 | **Phase 45 / M6.1** | MissionActor foundation + 8-event taxonomy | L3 (Core) | ✅ on `wt/5a39ff05` (not on `phase45/transport`) |
+| 7 | **Phase 45 / M6.2** | Scheduler (delayed + cron + one-shot) | L4 (Ops) | 📋 NOT STARTED |
+| 8 | **Phase 45 / M6.3** | Crash recovery (WAL + replay + DLQ) | L5 (Self) | 📋 NOT STARTED |
+| 9 | **Phase 45 / M6.5** | Observability (metrics + traces + dashboard) | L4 (Ops) | 📋 NOT STARTED |
+| 10 | **Phase 45 FINAL** | v0.10.0 freeze gate + walkthrough | — | 📋 NOT STARTED |
 
 ### 4.1 Active CRs
 
 | CR | Title | Status | Commit |
 |----|-------|--------|--------|
+| CR-001 | Mission state typo alignment (Phase 45 spec §4.3) | 📋 DRAFT (in `docs/cr/CR-1_*`) | — |
 | CR-002 | Skill install/remove runtime alignment with Phase 18 / 41 spec | ✅ COMMITTED + PUSHED | `87682e5` |
 | CR-003 | Route-shadowing fix (skill_routes mount-point) | ✅ COMMITTED (in 0.9.3 v2) | `4712c8b` |
 | CR-004 | CR-002 static analysis: 7 low-severity follow-up candidates (path A) | ✅ COMMITTED + PUSHED | `3d7383b` |
 | CR-005 | SAVEPOINT-backed race-recovery in `DbSwarmPersistence.save_task` | ✅ COMMITTED + PUSHED + APPROVED | `506e275` |
+| CR-4 (Phase 45) | D-4 (runtime idempotency) + D-5 (versioned envelope) | ✅ APPROVED (2026-07-09) — retrofitted to `phase45/transport` at `7e53c69` | `7e53c69` |
 
 ---
 
@@ -105,7 +110,9 @@ Layer 5 — Autonomous OS:       ██████████ 100%  (Self-heal
 |----|------|-------------|----------|-------|--------|
 | R-A | Process | Documentation-first cadence slows code velocity | low | Architect | mitigated (process by design) |
 | R-B | Tooling | Architecture linter checks strict core separation | low | — | mitigated (decoupled interface design) |
-| R-C | Coverage | 92.00% coverage achieved (target ≥90% met) | low | — | tracked |
+| R-C | Coverage | 91.00% coverage achieved (target ≥80% met) | low | — | tracked |
+| R-D | Phase 45 / M6.4 | M6.4.B code-completion gap (REMOTE_PREFERRED + WorkerRegistry task tracking) on `phase45/transport` | low | Architect | plan-listed; not a spec amendment; awaits priority call |
+| R-E | Phase 45 / M6.4 | M6.4.A milestone report (on `wt/5a39ff05` only) not yet lifted to `phase45/transport` | low | Architect | required for M6.4.A freeze; can recover via `git show wt/5a39ff05:docs/reports/PHASE45_M6_4_A_REPORT.md` |
 
 **No active STOP conditions.** No open conflicts. No architect-bypass.
 
@@ -140,17 +147,20 @@ Phase 38 (Unified Memory & KG):         1164 tests
 Phase 39 (Workflow Graph Engine):       1208 tests
 Phase 40 (Event Bus & Reactive Arch):    1215 tests
 Phase 41 (Capability Registry):          1215 tests
+Phases 42-44 (Identity/Goal/Scheduler):  1259 tests
+0.9.4 (post-Phase 41 housekeeping):     1761 tests (on `main` at `ce8ebdb`)
 
-Post-Phase 41 (test count grew with later commits):
-CR-002 + housekeeping:        +1 e2e real-runtime test, +2 install-route rewrites
-                              +4 install-pipeline strengthened, +1 repository
+phase45/transport (M6.4 work, branch ahead of main):
+  baseline 1761 + M6.4.A 168 + M6.4.B.1 39 + M6.4.B.2 56 - overlap adjustments = 1985
 ```
 
-Current test count: **1761/1763 passing** (last run 2026-07-11 16:47 NPT, post-CR-005).
+Current test count on `phase45/transport`: **1985 passed / 2 skipped / 0 failed** (last run per `337ca64` milestone report).
 - 2 skipped (pre-existing `--skip` markers; not regressions)
-- 0 flakes (both pre-existing flakes resolved: `test_concurrent_save_task_no_pk_violation` fixed by CR-005's SAVEPOINT path; `test_vault_manager_encryption_decryption` was transient and now passes)
+- 0 flakes
 
-Coverage: **91.00%** (target ≥80% met).
+Current test count on `main`: **1761/1763 passing** (per `31e6897`; 2 skipped pre-existing markers; 0 flakes).
+
+Coverage: **91.00%** (target ≥80% met; security-relevant modules at 100%).
 
 ---
 
@@ -158,18 +168,20 @@ Coverage: **91.00%** (target ≥80% met).
 
 | Dimension | Status | Notes |
 |-----------|--------|-------|
-| Frozen specs respected | ✅ | AGENTS.md §6.1 enforced; CR-002 / CR-004 spec deltas in Phase 17/18 §A.x; CR-005 spec delta in Phase 26 §A.3 — all additive, no contract changes |
-| Plan-discipline | ✅ | CR-002/CR-004/CR-005 each implemented per their `docs/CR/CR-XXX-*`; no plan drift |
-| Quality gate | ✅ | ruff + mypy + 1761/1763 tests pass on `506e275`; 2 skipped (pre-existing markers); 0 flakes |
-| Test growth | ✅ | 1215 (Phase 41 freeze) → 1763 (post-0.9.4 work); monotonic growth |
+| Frozen specs respected | ✅ | AGENTS.md §6.1 enforced; CR-4 retrofitted onto `phase45/transport` at `7e53c69`; on-disk M6.4 code is now authorized |
+| Plan-discipline | ✅ | M6.4.A + M6.4.B.1 + M6.4.B.2 each match their plan §3 deliverables; M6.4.B has a known code-completion gap (REMOTE_PREFERRED + WorkerRegistry task tracking) awaiting architect call |
+| Quality gate (main) | ✅ | ruff + mypy + 1761/1763 tests pass on `ce8ebdb`; 2 skipped; 0 flakes |
+| Quality gate (phase45/transport) | ✅ | ruff + mypy + 1985 passed / 2 skipped / 0 failed on `337ca64`; no regression vs `main` baseline 1761 |
+| Test growth | ✅ | 1215 (Phase 41 freeze) → 1259 (Phase 44) → 1761 (0.9.4) → 1985 (M6.4 on branch); monotonic growth |
 | Coverage trend | ✅ | 91.00% (target ≥80% met) |
-| STOP conditions | 0 | none active |
+| STOP conditions | 0 | none active (the §6.1 STOP from the M6.4 code-without-spec gap was resolved in `7e53c69`) |
 | Architecture audit | ✅ | Architecture Linter + DGV scan passes cleanly |
-| 0.9.4 readiness | ✅ | SHIPPED — CR-002 + CR-003 + CR-004 + CR-005 all on `origin/main` at `506e275`; ready for tag at the next natural release boundary (no premature hotfix tag) |
+| 0.9.4 readiness | ✅ | SHIPPED on `main` at `ce8ebdb`; ready for tag at next natural release boundary (no premature hotfix tag per release-boundary push policy) |
+| Phase 45 governance | ✅ | spec v1.2 / plan v1.1 / CR-4 / state machine now on `phase45/transport`; on-disk M6.4 code is authorized |
 
-**Overall health:** 🟢 GREEN — on-track, on-discipline, on-quality. 0.9.4 is
-**shipped to main** (4 commits since 0.9.3 v2: CR-002, CR-004 polish, CR-005
-fix, plus the 4 prior housekeeping commits). The natural release boundary is
-the next planned milestone; no premature hotfix tag is being cut per the
-architect's release-boundary push policy. Pre-existing flakes are now
-resolved.
+**Overall health:** 🟢 GREEN — on-track, on-discipline, on-quality. Phase 45
+M6.4 work is in active development on `phase45/transport` with governance
+correctly retrofitted. M6.4.B code-completion (small, plan-listed) and
+M6.4.C (stretch) remain as the next architect decisions; other Phase 45
+sub-milestones (M6.1, M6.2, M6.3, M6.5) are separate work streams to be
+picked up on separate branches.
