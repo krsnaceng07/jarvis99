@@ -470,14 +470,26 @@ def default_specs() -> List[ProbeSpec]:
             body_factory=_agent_run_body,
             expected_status=(202,),
         ),
-        # NOTE: `workflows.list` is intentionally NOT in the capability matrix.
-        # The Phase 14 spec (docs/76) defines the workflow routes as
+        # NOTE: Phase 14 spec (docs/76) defines two workflow endpoints:
         # `POST /api/v1/workflows` (submit) and `GET /api/v1/workflows/{id}`
-        # (status) — there is no list-all-workflows endpoint. The capability
-        # matrix must only test defined public contracts; probing an
-        # undefined endpoint produces a misleading 405 and confuses the
-        # quality signal. Re-add a probe here only after a spec CR defines
-        # a list endpoint.
+        # (status). There is no list-all-workflows endpoint, so we probe
+        # submit + status. Submit validates, compiles, and persists a
+        # WorkflowPlan and returns 202 Accepted.
+        # ---- Workflows ----
+        ProbeSpec(
+            capability="workflows.submit",
+            category="Workflows",
+            method="POST",
+            path="/api/v1/workflows",
+            requires_auth=True,
+            body_factory=lambda _: {
+                "name": "capability-matrix-probe",
+                "steps": [],
+                "version": 1,
+            },
+            expected_status=(202,),
+            notes="Phase 14 spec: POST /api/v1/workflows (submit)",
+        ),
         # ---- Skills / Capabilities ----
         ProbeSpec(
             capability="capabilities.discover",
