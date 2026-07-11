@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.exceptions import JarvisAgentError
@@ -51,50 +52,84 @@ class DbSwarmPersistence(SwarmPersistence):
                     await self._save_task_internal(task, sess)
 
     async def _save_task_internal(self, task: SwarmTask, session: AsyncSession) -> None:
-        q = select(SwarmTaskModel).where(SwarmTaskModel.task_id == task.task_id)
-        res = await session.execute(q)
-        model = res.scalar_one_or_none()
+        """Persist a swarm task as an idempotent upsert (INSERT or UPDATE).
 
+        The implementation is race-safe: when two sessions call save_task for
+        the same task_id concurrently, both may observe a missing row in the
+        initial SELECT, and one of them will lose the subsequent INSERT to
+        the primary-key UNIQUE constraint. That IntegrityError is recovered
+        by rolling back the failed insert, re-fetching the row that the
+        winning session just committed, and applying the update path.
+
+        See docs/releases/RELEASE_0.9.3_PLATFORM_RUNTIME_STABILIZATION_v2.md
+        for the runtime context (LLM-failure replan path triggering the race
+        in mission waves).
+        """
         expected_version = task.metadata.get("_version", 1)
 
-        if not model:
-            model = SwarmTaskModel(
-                task_id=task.task_id,
-                goal=task.goal,
-                priority=task.priority,
-                status=task.status,
-                capabilities=task.capabilities,
-                timeout=task.timeout,
-                retry=task.retry,
-                dependencies=(
-                    [str(d) for d in task.dependencies] if task.dependencies else []
-                ),
-                metadata_=task.metadata,
-                version=1,
-            )
-            session.add(model)
-        else:
-            if model.version != expected_version:
+        def _apply_update(existing: SwarmTaskModel) -> None:
+            """Update an existing row in-place, enforcing optimistic locking."""
+            if existing.version != expected_version:
                 raise JarvisAgentError(
                     code="AGENT_005",
                     message=(
                         f"Optimistic locking conflict on task {task.task_id}: "
                         f"expected version {expected_version}, "
-                        f"database has {model.version}."
+                        f"database has {existing.version}."
                     ),
                 )
-            model.goal = task.goal
-            model.priority = task.priority
-            model.status = task.status
-            model.capabilities = task.capabilities
-            model.timeout = task.timeout
-            model.retry = task.retry
-            model.dependencies = (
+            existing.goal = task.goal
+            existing.priority = task.priority
+            existing.status = task.status
+            existing.capabilities = task.capabilities
+            existing.timeout = task.timeout
+            existing.retry = task.retry
+            existing.dependencies = (
                 [str(d) for d in task.dependencies] if task.dependencies else []
             )
-            task.metadata["_version"] = model.version + 1
-            model.metadata_ = task.metadata
-            model.version += 1
+            task.metadata["_version"] = existing.version + 1
+            existing.metadata_ = task.metadata
+            existing.version += 1
+
+        q = select(SwarmTaskModel).where(SwarmTaskModel.task_id == task.task_id)
+        res = await session.execute(q)
+        model = res.scalar_one_or_none()
+
+        if model is None:
+            try:
+                model = SwarmTaskModel(
+                    task_id=task.task_id,
+                    goal=task.goal,
+                    priority=task.priority,
+                    status=task.status,
+                    capabilities=task.capabilities,
+                    timeout=task.timeout,
+                    retry=task.retry,
+                    dependencies=(
+                        [str(d) for d in task.dependencies] if task.dependencies else []
+                    ),
+                    metadata_=task.metadata,
+                    version=1,
+                )
+                session.add(model)
+                # Flush so a UNIQUE/PK violation surfaces here, recoverable
+                # via the except branch below. Without this flush, the
+                # IntegrityError would only be raised at transaction commit
+                # time — outside our try/except — and would crash the
+                # whole session instead of being demoted to an UPDATE.
+                await session.flush()
+            except IntegrityError:
+                # Concurrent writer won the race: another session INSERTed
+                # the same task_id between our SELECT and our flush. Roll
+                # back our failed insert, refetch the row that the winning
+                # session committed, and apply the update path so the
+                # caller's intent (status change, version bump) is honored.
+                await session.rollback()
+                res = await session.execute(q)
+                model = res.scalar_one()
+                _apply_update(model)
+        else:
+            _apply_update(model)
 
     async def list_tasks(
         self,

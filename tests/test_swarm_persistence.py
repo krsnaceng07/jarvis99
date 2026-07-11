@@ -820,3 +820,240 @@ class TestOrchestratorLifecycle:
         assert orch._worker_task is None
 
         await orch.shutdown()
+
+
+# ── Race-safe upsert regression tests (v0.9.3 follow-up) ──────────
+
+
+class TestSaveTaskRaceSafeUpsert:
+    """Regression tests for the ``UNIQUE constraint failed: swarm_tasks.task_id``
+    bug observed in the v0.9.3 smoke test (LLM-failure replan path racing the
+    orchestrator's claim-on-dequeue path).
+
+    Two scenarios are covered:
+
+    1. **End-to-end race on a real file-based SQLite** — two independent
+       AsyncSessions targeting the same DB call ``save_task`` for the same
+       task_id concurrently via ``asyncio.gather``. Both must complete
+       without raising ``IntegrityError``; the final row reflects the
+       winning update.
+
+    2. **Mocked IntegrityError recovery** — directly exercises the
+       ``except IntegrityError`` branch in ``_save_task_internal`` by
+       simulating: first SELECT returns no row, flush raises, rollback +
+       re-fetch returns the row, the update path applies cleanly.
+    """
+
+    @pytest.mark.asyncio
+    async def test_concurrent_save_task_no_pk_violation(self, tmp_path: Any) -> None:
+        """Two concurrent save_task calls on different sessions for the same
+        task_id must both succeed — the loser is recovered as an UPDATE."""
+        import os
+
+        from core.memory.models import Base
+        from core.runtime.persistence_db import DbSwarmPersistence
+
+        db_path = tmp_path / "race_test.db"
+        if db_path.exists():
+            db_path.unlink()
+
+        engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}", echo=False)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+        try:
+            persistence = DbSwarmPersistence(session_factory=session_factory)
+
+            # Both tasks carry the SAME task_id, simulating the replan path
+            # where a new SwarmTask DTO is constructed with the original
+            # task's UUID.
+            shared_task_id = uuid4()
+            task_a = SwarmTask(
+                task_id=shared_task_id,
+                goal="Original",
+                priority="NORMAL",
+                capabilities=["Python"],
+                timeout=300.0,
+                retry=0,
+                dependencies=[],
+                metadata={},
+                status="Pending",
+            )
+            task_b = SwarmTask(
+                task_id=shared_task_id,
+                goal="Replanned",
+                priority="HIGH",
+                capabilities=["Python"],
+                timeout=300.0,
+                retry=1,
+                dependencies=[],
+                metadata={"replanned": True},
+                status="Claimed",
+            )
+
+            # Fire both saves concurrently. The first to land INSERTs the
+            # row; the second's SELECT may miss it (depending on session
+            # isolation / pool behavior) and attempt an INSERT that the PK
+            # UNIQUE constraint will reject. The fix in
+            # _save_task_internal catches that IntegrityError, re-fetches
+            # the row, and demotes the failed insert to an UPDATE.
+            results = await asyncio.gather(
+                persistence.save_task(task_a),
+                persistence.save_task(task_b),
+                return_exceptions=True,
+            )
+
+            # Neither call should have raised — the second one is recovered.
+            for i, r in enumerate(results):
+                assert not isinstance(r, Exception), (
+                    f"save_task call #{i} raised unexpectedly: {type(r).__name__}: {r}"
+                )
+
+            # Final row reflects the most recent state with version bumped.
+            async with session_factory() as session:
+                row = await session.execute(
+                    select(SwarmTaskModel).where(
+                        SwarmTaskModel.task_id == shared_task_id
+                    )
+                )
+                model = row.scalar_one()
+                assert model.status in {"Pending", "Claimed"}
+                # Version is 1 (initial insert); the losing call's UPDATE
+                # path bumps it to 2 if the second writer won the recovery.
+                assert model.version >= 1
+        finally:
+            await engine.dispose()
+            if db_path.exists():
+                os.remove(db_path)
+
+    @pytest.mark.asyncio
+    async def test_integrity_error_recovered_as_update(self) -> None:
+        """Directly exercise the IntegrityError → rollback → re-fetch → UPDATE
+        branch by mocking the session to fail the first flush."""
+        from sqlalchemy.exc import IntegrityError
+
+        from core.runtime.persistence_db import DbSwarmPersistence
+
+        # Pre-existing model row in the DB that the "winning" session just
+        # INSERTed. The "losing" session's SELECT will miss it (mocked),
+        # the flush will raise IntegrityError, and the fix must refetch +
+        # update this row.
+        existing_task_id = uuid4()
+        existing_model = SwarmTaskModel(
+            task_id=existing_task_id,
+            goal="Original",
+            priority="NORMAL",
+            status="Pending",
+            capabilities=[],
+            timeout=300.0,
+            retry=0,
+            dependencies=[],
+            metadata_={"_version": 1},
+            version=1,
+        )
+
+        # Mock session: first SELECT → None, flush → IntegrityError,
+        # post-rollback SELECT → the existing model.
+        select_call_count = {"n": 0}
+        flushed = {"n": False}
+        rolled_back = {"n": False}
+
+        mock_session = MagicMock()
+        mock_result_empty = MagicMock()
+        mock_result_empty.scalar_one_or_none.return_value = None
+        mock_result_full = MagicMock()
+        mock_result_full.scalar_one.return_value = existing_model
+
+        async def fake_execute(stmt: Any) -> Any:
+            select_call_count["n"] += 1
+            if select_call_count["n"] == 1:
+                return mock_result_empty
+            return mock_result_full
+
+        async def fake_flush() -> None:
+            flushed["n"] = True
+            raise IntegrityError(
+                "INSERT",
+                params=None,
+                orig=Exception("UNIQUE constraint failed: swarm_tasks.task_id"),
+            )
+
+        async def fake_rollback() -> None:
+            rolled_back["n"] = True
+
+        mock_session.execute.side_effect = fake_execute
+        mock_session.flush.side_effect = fake_flush
+        mock_session.rollback.side_effect = fake_rollback
+        mock_session.add = MagicMock()
+
+        persistence = DbSwarmPersistence()
+        task = SwarmTask(
+            task_id=existing_task_id,
+            goal="Replanned",
+            priority="HIGH",
+            capabilities=["Python"],
+            timeout=300.0,
+            retry=1,
+            dependencies=[],
+            metadata={"replanned": True},
+            status="Claimed",
+        )
+
+        # Should NOT raise — the IntegrityError is caught and recovered.
+        await persistence._save_task_internal(task, mock_session)
+
+        # Verify the recovery path actually executed.
+        assert flushed["n"], "session.flush() was not called"
+        assert rolled_back["n"], "session.rollback() was not called"
+        # Two SELECTs: pre-flush (miss) + post-rollback (hit).
+        assert select_call_count["n"] == 2
+        # The update path applied the new state to the existing row.
+        assert existing_model.status == "Claimed"
+        assert existing_model.priority == "HIGH"
+        assert existing_model.retry == 1
+        assert existing_model.version == 2
+        assert task.metadata["_version"] == 2
+
+    @pytest.mark.asyncio
+    async def test_integrity_error_with_stale_version_raises(
+        self, async_db: AsyncSession
+    ) -> None:
+        """When the recovered row's version is stale, the optimistic lock
+        check still fires (no relaxation of locking on race recovery)."""
+        from core.exceptions import JarvisAgentError
+        from core.runtime.persistence_db import DbSwarmPersistence
+
+        # Seed a row with version=5 directly via the session.
+        task_id = uuid4()
+        seeded = SwarmTaskModel(
+            task_id=task_id,
+            goal="Seeded",
+            priority="NORMAL",
+            status="Pending",
+            capabilities=[],
+            timeout=300.0,
+            retry=0,
+            dependencies=[],
+            metadata_={},
+            version=5,
+        )
+        async_db.add(seeded)
+        await async_db.flush()
+
+        # Caller believes the row is at version 1 (stale).
+        persistence = DbSwarmPersistence()
+        task = SwarmTask(
+            task_id=task_id,
+            goal="Stale update",
+            priority="HIGH",
+            capabilities=[],
+            timeout=300.0,
+            retry=0,
+            dependencies=[],
+            metadata={"_version": 1},
+            status="Claimed",
+        )
+        with pytest.raises(JarvisAgentError) as exc_info:
+            await persistence._save_task_internal(task, async_db)
+        assert "Optimistic locking conflict" in str(exc_info.value)
