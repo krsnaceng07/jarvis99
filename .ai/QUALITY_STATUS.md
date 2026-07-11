@@ -4,7 +4,7 @@
 
 None. M6.4 sub-stream (A + A report lift + B.1 + B.2 + governance + B code-completion + C) is MERGED to `main` and the post-merge full-suite regression is GREEN.
 
-**Quality gate (latest run, on `main` post-merge at `0b9f1bf`):**
+**Quality gate (latest run, on `main` at `78f1265` — M6.4 sub-stream SHIPPED to `origin/main`):**
 - ruff format: PASS on M6.4 touched files (14/16 already formatted; the 2 that would reformat — `mission_scheduler.py` and `mission_types.py` — are pre-existing Phase 44 files, NOT M6.4 files; non-blocking)
 - ruff check: PASS on M6.4 touched files (`core/mission/` + `api/routes/distributed_pool.py` + new test files)
 - mypy --strict: PASS on M6.4 source files (9 source files: `mission_transport.py`, `transports/{__init__,envelope,local,redis}.py`, `worker_registry.py`, `worker_process.py`, `distributed_router.py`, `leader_election.py`)

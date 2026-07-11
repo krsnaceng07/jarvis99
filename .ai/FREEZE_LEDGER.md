@@ -67,4 +67,4 @@
 
 **Pre-Phase 45 frozen files:** see earlier entries (Phases 1-44) — the FREEZE_LEDGER retains them but the active M6.4 work only references the Phase 45 entries above.
 
-**Updated:** 2026-07-11 20:08 NPT — post-merge closure of M6.4 sub-stream on `main` at `0b9f1bf`; post-merge full-suite regression GREEN 2041 passed / 2 skipped / 0 failed; AGENTS.md §12 row 45 → STAGED for v0.10.0-prep; release doc at `docs/releases/RELEASE_0.10.0_PREP_PHASE_45_M6_4_SUBSTREAM.md`; FINAL v0.10.0 tag HELD pending M6.1.B + M6.2.A/B + M6.3.A/B + M6.5.A/B per `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` §3 + §8 STOP
+**Updated:** 2026-07-11 20:25 NPT — M6.4 sub-stream SHIPPED to `origin/main` at `78f1265` (post-merge state refresh); 2041 passed / 2 skipped / 0 failed on main; AGENTS.md §12 row 45 → STAGED for v0.10.0-prep; FINAL v0.10.0 tag HELD pending M6.1.B + M6.2.A/B + M6.3.A/B + M6.5.A/B per `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` §3 + §8 STOP

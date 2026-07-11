@@ -1,6 +1,6 @@
 # NEXT ACTION
 
-**Status (2026-07-11 20:08 NPT):** M6.4 sub-stream MERGED to `main` at `0b9f1bf`; post-merge full-suite regression GREEN (2041 passed / 2 skipped / 0 failed). State-file refresh in progress.
+**Status (2026-07-11 20:25 NPT):** M6.4 sub-stream SHIPPED to `origin/main` at `78f1265`; post-merge full-suite regression GREEN (2041 passed / 2 skipped / 0 failed). State-file refresh committed (78f1265). `main` is up to date with `origin/main`. Awaiting architect decision on next sub-milestone.
 
 **Pending architect decision (per AGENTS.md §1 rank-5 → rank-2):**
 

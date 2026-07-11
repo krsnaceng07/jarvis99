@@ -16,6 +16,8 @@
 | 8 | Pre-merge doc refresh (AGENTS.md §12 STAGED + dashboard + release doc) | `aef2721` | ✅ MERGED |
 | 9 | M6.4 sub-stream merge to `main` (`--no-ff`, 9 commits from `phase45/transport`) | `0b9f1bf` | ✅ MERGED |
 | 10 | Post-merge full-suite regression on `main` (2041 passed / 2 skipped / 0 failed) | local | ✅ GREEN |
+| 11 | Post-merge state refresh (AGENTS.md §12 + 11 `.ai/` state files) | `78f1265` | ✅ COMMITTED |
+| 12 | Push `main` → `origin/main` (11 commits, fast-forward) | `78f1265` → `origin/main` | ✅ SHIPPED |
 
 **Open / pending (architect decision required):**
 - M6.1.A/B, M6.2.A/B, M6.3.A/B, M6.5.A/B (other Phase 45 sub-milestones) — separate branches off `wt/5a39ff05` lineage when picked up. Do NOT branch off `main` post-merge.

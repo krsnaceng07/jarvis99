@@ -1,6 +1,6 @@
 # HANDOFF NOTE
 
-**Current Branch:** `main` (commit `0b9f1bf` HEAD — M6.4 sub-stream merge)
+**Current Branch:** `main` (commit `78f1265` HEAD — post-merge state refresh, pushed to `origin/main` 2026-07-11 20:25 NPT)
 **Current Milestone:** Phase 45 / M6.4 (Distributed Execution) — **MERGED 2026-07-11 20:03 NPT**; post-merge full-suite regression GREEN (2041 passed / 2 skipped / 0 failed). Phase 45 row 45 in AGENTS.md §12 is STAGED for v0.10.0-prep. FINAL v0.10.0 tag is HELD until M6.1.B + M6.2.A/B + M6.3.A/B + M6.5.A/B all pass individually per `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` §3 + §8 STOP.
 
 **Finished on `main` (chronological, M6.4 sub-stream commits from `phase45/transport`):**
@@ -22,7 +22,7 @@
 **Open / Pending (next agent's call):**
 - **Other Phase 45 sub-milestones** — M6.1.A/B (MissionActor rehydration), M6.2.A/B (Scheduler), M6.3.A/B (Crash recovery), M6.5.A/B (Observability) — separate branches off `wt/5a39ff05` lineage (where M6.1.A already lives). Do NOT branch off `main` post-merge.
 - **FINAL v0.10.0 freeze gate** — HELD until M6.1.B + M6.2.A/B + M6.3.A/B + M6.5.A/B all pass individually per `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` §3 + §8 STOP.
-- **Push to `origin/main`** — `main` is 10 commits ahead of `origin/main`; held for architect approval (no force-push).
+- **Push to `origin/main`** — ✅ DONE 2026-07-11 20:25 NPT. `main` is up to date with `origin/main`.
 - **LeaderElection ↔ DistributedRouter integration** — wiring `LeaderElection` to elect a single active `DistributedRouter` instance is a future sub-milestone. M6.4.C ships the primitive + tests; the integration is its own gate when M6.4 streams into a multi-leader deployment.
 
 **Next Agent Instructions:**

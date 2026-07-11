@@ -14,7 +14,7 @@
 
 4. **M6.5.A — Mission dashboard views + REST endpoint** — open a fresh branch off `wt/5a39ff05`. Observability milestone. Estimated: 1 milestone, ~120 LoC + 8-10 tests, 1 commit.
 
-5. **Push `main` → `origin/main`** — `main` is 10 commits ahead of `origin/main`. Standard `git push origin main` (no force). Held for architect approval.
+5. **Push `main` → `origin/main`** — ✅ DONE 2026-07-11 20:25 NPT. 11-commit fast-forward, no force, no divergence.
 
 6. **Hold all sub-milestones; start FINAL v0.10.0 prep** — FINAL gate is HELD until M6.1.B + M6.2.A/B + M6.3.A/B + M6.5.A/B all pass per plan §8 STOP. So FINAL cannot close until at least the foundational sub-milestones land.
 

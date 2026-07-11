@@ -2,7 +2,7 @@
 
 *Rule: Start execution EXACTLY from this point if resuming.*
 
-**Resume From:** `main` commit `0b9f1bf` (M6.4 sub-stream MERGED 2026-07-11 20:03 NPT; post-merge full-suite regression GREEN 2041 passed / 2 skipped / 0 failed)
+**Resume From:** `main` commit `78f1265` (post-merge state refresh + pushed to `origin/main` 2026-07-11 20:25 NPT; `main` is up to date with `origin/main`; M6.4 sub-stream SHIPPED)
 **Resume Function:** M6.4 sub-stream MERGED to `main` with `--no-ff` (release-boundary push policy 2026-07-10). All M6.4 sub-milestones (A + A report lift + B.1 + B.2 + governance + B code-completion + C) pass their gates. Phase 45 row 45 in AGENTS.md §12 is bumped to "🟨 STAGED for v0.10.0-prep". FINAL v0.10.0 tag is HELD until M6.1.B + M6.2.A/B + M6.3.A/B + M6.5.A/B all pass individually per `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` §3 + §8 STOP.
 **Resume File:** N/A
 

@@ -5,7 +5,7 @@
 **Current Sub-Goal:** 6.4 Distributed Execution — **MERGED 2026-07-11 20:03 NPT**
 **Current Status:** 🟨 STAGED for v0.10.0-prep — M6.4 sub-stream on `main`; FULL-SUITE REGRESSION GREEN (2041 passed / 2 skipped / 0 failed); FINAL v0.10.0 tag HELD pending M6.1.B + M6.2.A/B + M6.3.A/B + M6.5.A/B
 **Last Frozen Milestone:** Phase 44 (Mission Scheduler) — FROZEN 2026-07-06 at 1259 tests
-**Latest Stable on `main`:** M6.4 sub-stream MERGED at `0b9f1bf` (2041 tests; 10 commits ahead of `origin/main`)
+**Latest Stable on `main`:** M6.4 sub-stream SHIPPED to `origin/main` at `78f1265` (post-merge state refresh; 11 commits ahead pre-push → 0 ahead post-push); 2041 tests; `main` is up to date with `origin/main`
 **Test Count on `main`:** 2041 passed / 2 skipped / 0 failed (full-suite post-merge regression)
 **Current Build Loop:** —
 **Next Action:** Architect decision on which Phase 45 sub-milestone to pick up next (M6.1.B / M6.3.A / M6.2.A / M6.5.A) — all on `wt/5a39ff05` lineage branches; M6.4 work is closed.
