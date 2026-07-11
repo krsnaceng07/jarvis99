@@ -3,218 +3,68 @@
 *Rule: Build skill MUST check this before editing. Frozen files/interfaces CANNOT be touched.*
 
 **Workflow State:**
-- **Workflow v3.1: FROZEN** (Only Architect can modify. Build agents MUST NOT edit `.claude/skills/` or the `.ai/` architecture).
+- **AGENTS.md v1.0: FROZEN** (2026-07-29 — post-Phase 16 freeze)
+- **Phase 16 (AGENTS.md):** FROZEN 2026-06-29 at 193 tests
 
-**Approved Milestones:**
-- M1.0, M2.0, M3.0, M4.0, M5.5.1, M5.5.2, M5.5.3, M5.5.4, M5.5.5
-- Phase 20 (Memory Runtime), Phase 21 (Planner Runtime), Phase 22 (Orchestrator Runtime), Phase 23 (Tool Runtime)
-- Phase 24 (Autonomous Agent Runtime) — FROZEN 2026-07-04 at 957 tests
-- Phase 25 (Browser Runtime + Execution Journal) — FROZEN 2026-07-04 at 986 tests
-- Phase 26 (Multi-Agent Runtime + Persistent Session Recovery) — FROZEN 2026-07-04 at 1005 tests
-- Phase 27 (Observability, Cost Governance & Live Execution Streaming) — FROZEN 2026-07-04 at 1055 tests
-- Phase 28 (Security & Vault Hardening) — FROZEN 2026-07-04 at 1068 tests
-- Phase 29 (Advanced Vault Operations) — FROZEN 2026-07-04 at 1073 tests
-- Phase 30 (Cloud Sync & High Availability) — FROZEN 2026-07-04 at 1080 tests
-- Phase 31 (Platform Scale & Federation) — FROZEN 2026-07-05 at 1086 tests
-- Phase 32 (Platform Administration & Operations) — FROZEN 2026-07-05 at 1102 tests
-- Phase 33 (Enterprise Deployment, Operations & Production Readiness) — FROZEN 2026-07-05 at 1115 tests
-- Phase 34 (Autonomous Mission Engine & Long-Running Agents) — FROZEN 2026-07-05 at 1126 tests
-- Phase 35 (Distributed Compute & Task Offloading) — FROZEN 2026-07-05 at 1132 tests
-- Phase 36 (Swarm Intelligence & Consensus) — FROZEN 2026-07-05 at 1136 tests
-- Phase 37 (Brain Kernel & Neural Intelligence Layer) — FROZEN 2026-07-05 at 1136 tests
-- Phase 38 (Unified Memory & Knowledge Graph) — FROZEN 2026-07-05 at 1164 tests
-- Phase 39 (Workflow Graph Engine & Autonomous Workflow Runtime) — FROZEN 2026-07-05 at 1208 tests
-- Phase 40 (Event Bus & Reactive Architecture) — FROZEN 2026-07-06 at 1215 tests
-- Phase 41 (Capability Registry & Skill Runtime) — FROZEN 2026-07-06 at 60 tests (1215 total)
-- Phase 42 (Identity Engine) — FROZEN 2026-07-06 at 44 tests (1259 total)
-- Phase 35 (Distributed Task Offloading & Remote Tool Execution) — FROZEN 2026-07-05 at 1132 tests
-- Phase 36 (Swarm Intelligence & Multi-Agent Consensus) — FROZEN 2026-07-05 at 1136 tests (note: Milestone 2 routes pending approval)
-- Phase 37 (Brain Kernel & Neural Intelligence Layer) — FROZEN 2026-07-05 at 1136 tests
-- Phase 38 (Unified Memory & Knowledge Graph) — FROZEN 2026-07-05 at 1164 tests
+**Approved Milestones (post-Phase 41, as of 2026-07-11):**
+- Phase 42 (Identity Engine) — FROZEN 2026-07-06 at 1259 tests
+- Phase 43 (Goal Engine) — FROZEN 2026-07-06 at 1259 tests (per AGENTS.md §12 row 43)
+- Phase 44 (Mission Scheduler) — FROZEN 2026-07-06 at 1259 tests (per AGENTS.md §12 row 44)
+- Phase 45 (Persistent Autonomous Runtime) — IN DEVELOPMENT on `phase45/transport` branch
+  - Spec: `docs/107_PHASE_45_PERSISTENT_AUTONOMOUS_RUNTIME_SPECIFICATION.md` v1.2 FROZEN-amended (2026-07-08, CR-1/2/3/4 applied)
+  - Plan: `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` v1.1 FROZEN (2026-07-08, A-1..A-4 invariants)
+  - CR-4: `docs/cr/CR-4_phase45_d4_d5_idempotency_envelope.md` APPROVED 2026-07-09
 
-**Frozen Files:**
-- core/architecture/frozen_interfaces.py
-- .claude/skills/* (Workflow v3.1 logic)
-- AGENTS.md (Boot protocol frozen)
-- scripts/architecture_linter.py
-- scripts/dgv.py
-- scripts/trace_check.py
-- scripts/governance_check.py
-- scripts/quality_gate.py
-- core/reasoning/goal.py
-- core/reasoning/task.py
-- core/reasoning/dependency_graph.py
-- core/reasoning/scheduler.py
-- core/reasoning/planner_validator.py
-- core/reasoning/execution_plan.py
-- core/reasoning/dispatcher.py
-- core/reasoning/orchestrator.py (execute_wave_new, execute_task_step_new frozen)
-- core/reasoning/engine.py (execute_goal_new frozen)
-- core/reasoning/plan_version_manager.py
-- core/tools/python_runtime.py
-- core/tools/shell_runtime.py
-- core/tools/file_runtime.py
-- core/tools/api_runtime.py
-- core/tools/human_runtime.py
-- core/tools/llm_runtime.py              # Phase 24: LlmRuntime (LlmRequest/LlmResponse DTOs)
-- core/reasoning/reflection.py          # Phase 24: ReflectionEngine.analyze() + legacy reflect_and_correct
-- core/reasoning/decision_engine.py     # Phase 24: DecisionEngine.select_tool()
-- core/reasoning/agent_loop.py          # Phase 24: AgentLoop (sole top-level controller)
-- core/reasoning/task.py                # Phase 24: AgentTerminationReason enum added
-- tests/test_llm_runtime.py
-- tests/test_reflection.py
-- tests/test_decision_engine.py
-- tests/test_agent_loop.py
-- core/tools/browser_runtime.py          # Phase 25: BrowserRuntime
-- core/reasoning/journal.py              # Phase 25: ExecutionJournal
-- tests/test_browser_runtime.py
-- tests/test_execution_journal.py
-- tests/test_planner_*.py
-- tests/test_orchestrator_*.py
-- tests/test_python_runtime.py
-- tests/test_shell_runtime.py
-- tests/test_file_runtime.py
-- tests/test_api_runtime.py
-- tests/test_human_runtime.py
-- core/runtime/persistence_models.py     # Phase 26: ORM Database models
-- core/runtime/persistence_db.py         # Phase 26: DbSwarmPersistence
-- core/runtime/persistence_journal.py    # Phase 26: PersistentExecutionJournal
-- core/runtime/recovery_manager.py        # Phase 26: SwarmResumeManager
-- tests/test_swarm_persistence.py
-- core/observability/dto.py                  # Phase 27: Observability DTOs
-- core/observability/models.py               # Phase 27: Observability ORM models
-- core/observability/span_repository.py      # Phase 27: SpanRepository persistence adapter
-- core/observability/budget_repository.py    # Phase 27: BudgetRepository persistence adapter
-- core/observability/tracer.py               # Phase 27: ExecutionTracer core component
-- core/observability/cost_governor.py        # Phase 27: CostGovernor core component
-- core/observability/health_probe.py         # Phase 27: HealthProbe core component
-- core/observability/broadcaster_interface.py # Phase 27: TelemetryBroadcaster core abstract interface
-- core/observability/service.py              # Phase 27: ObservabilityService composition coordinator
-- api/broadcaster.py                         # Phase 27: Concrete TelemetryBroadcaster component
-- api/routes/observability.py                # Phase 27: Observability web routes
-- tests/test_observability_*.py
-- tests/test_execution_tracer.py
-- tests/test_cost_governor.py
-- tests/test_health_probe.py
-- tests/test_telemetry_broadcaster.py
-- core/security/vault.py                  # Phase 28: Symmetric credentials vault manager (AES-256-GCM)
-- tests/test_vault_hardening.py
-- api/routes/vault.py                     # Phase 29: Vault rotate/backup/restore API routes
-- tests/test_vault_operations.py
-- core/security/sync.py                   # Phase 30: Cloud sync manager (AES-256-GCM + clocks)
-- core/runtime/replication.py             # Phase 30: Active-passive SQLite database replication
-- api/routes/sync.py                      # Phase 30: Cloud sync gateway REST routes
-- tests/test_sync_ha.py
-- core/runtime/federation.py              # Phase 31: Peer node registry, HMAC validations, replay checks
-- api/routes/federation.py               # Phase 31: Federation gateway REST routes
-- tests/test_federation.py
-- core/runtime/admin.py                  # Phase 32: Admin manager coordinator
-- api/routes/admin.py                    # Phase 32: Admin dashboard and REST gateway routes
-- api/templates/dashboard.html           # Phase 32: Admin Console SPA HTML
-- tests/test_admin.py                    # Phase 32: Admin manager integration tests
-- core/runtime/deployment.py             # Phase 33: Enterprise deployment and health manager
-- api/routes/platform.py                 # Phase 33: Secure platform REST API endpoints
-- deploy/docker-compose.dev.yml          # Phase 33: Development Compose template
-- deploy/docker-compose.prod.yml         # Phase 33: Hardened production Compose template
-- deploy/nginx/nginx.conf                # Phase 33: Load balancer reverse proxy
-- tests/test_platform_health.py          # Phase 33: Platform health integration tests
-- tests/test_preflight.py                # Phase 33: Preflight validator tests
-- tests/test_deployment_profiles.py      # Phase 33: Compose file property validation
-- tests/test_shutdown.py                 # Phase 33: Graceful shutdown draining verification
-- tests/test_disaster_recovery.py        # Phase 33: Disaster recovery verification tests
-- core/runtime/mission_models.py         # Phase 34: Mission and timeline ORM models
-- core/runtime/mission.py                # Phase 34: MissionManager state machine and loop execution coordinator
-- api/routes/missions.py                 # Phase 34: Missions REST API gateway router
-- tests/test_mission_manager.py          # Phase 34: MissionManager unit/integration tests
-- tests/test_mission_recovery.py         # Phase 34: MissionManager startup recovery tests
-- tests/test_mission_api.py              # Phase 34: Missions REST API tests
-- tests/test_checkpoint.py               # Phase 34: Checkpoint and rollback tests
-- tests/test_approval_gate.py             # Phase 34: Budget and safety gates tests
-- tests/test_multi_agent_mission.py      # Phase 34: Multi-agent coordination tests
-- tests/test_mission_coverage_boost.py   # Phase 34: Extra coverage tests
-- core/runtime/scale.py                   # Phase 35: ScaleManager coordinator
-- api/routes/federation_scale.py          # Phase 35: Scale REST routing endpoints
-- tests/test_distributed_scale.py         # Phase 35: Distributed task scale tests
-- core/memory/working_memory.py          # Phase 38: Transient context window manager
-- core/memory/long_term_memory.py        # Phase 38: Persistent episodic/semantic vector router
-- core/memory/episodic_memory.py         # Phase 38: Completed task and experience history
-- core/memory/semantic_memory.py         # Phase 38: Conceptual knowledge and fact retrieval
-- core/memory/procedural_memory.py       # Phase 38: Reusable workflows and execution patterns
-- core/memory/knowledge_graph.py         # Phase 38: Entities, relations, and triple indexer
-- core/memory/context_assembly.py        # Phase 38: BrainKernel context packager
-- core/memory/memory_coordinator.py      # Phase 38: Retrieval sequencing and conflict resolution
-- tests/test_unified_memory.py           # Phase 38: Unified memory verification suite
-- core/workflow/workflow_graph.py        # Phase 39: DAG node/edge data model
-- core/workflow/dag_scheduler.py         # Phase 39: Topological sort + parallel wave generator
-- core/workflow/retry_policy.py          # Phase 39: Configurable backoff and error classification
-- core/workflow/workflow_executor.py     # Phase 39: Async step executor with retry integration
-- core/workflow/checkpoint_store.py      # Phase 39: Checkpoint persistence via WorkingMemory
-- core/workflow/workflow_template.py     # Phase 39: ProceduralMemory-backed template registry
-- core/workflow/workflow_engine.py       # Phase 39: Public façade wiring all sub-components
-- tests/test_workflow_graph_engine.py    # Phase 39: Full verification suite (49 tests)
-- core/skills/capability_registry.py      # Phase 41: Global capability registry matching
-- core/skills/dependency_resolver.py      # Phase 41: Skill dependency resolver
-- core/skills/installer.py                # Phase 41: Installer, staging and rollback engine
-- core/skills/sandbox.py                  # Phase 41: Sandbox test runner
-- core/skills/signer.py                   # Phase 41: Cryptographic ECDSA signature verification
-- tests/test_skill_installer.py           # Phase 41: Installer contract tests
-- tests/test_skill_integration.py         # Phase 41: Dynamic skills integration tests
+**Phase 45 / M6.4 sub-milestones (per `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` §3):**
+- M6.1.A — MissionActor Foundation (NOT on this branch; landed on `wt/5a39ff05` lineage)
+- M6.4.A — MissionTransport Protocol + LocalTransport + WorkerProcess — ✅ LANDED at `1401b81` (commit on `phase45/transport`); REPORT lifted at `eb54911`; **architect-approval recorded in report (delegated mandate 2026-07-09); ready for freeze on merge to main**
+- M6.4.B — DistributedRouter + RemoteTransport (Redis) + Envelope (D-5) + Runtime Idempotency (D-4) — ✅ COMPLETE on `phase45/transport`:
+  - B.1 envelope codec: `1401b81`
+  - B.2 real Redis transport: `337ca64`
+  - Code-completion (REMOTE_PREFERRED + task tracking + 23 tests): `0e1b593`
+  - Report: `docs/reports/PHASE45_M6_4_B_REPORT.md` (156 lines)
+  - **Gate status: ✅ PASS** — 2008 passed / 2 skipped / 0 failed (+23 net new vs 1985 pre-M6.4.B); ruff + mypy clean; A-1 AST-verified
+- M6.4.C — Leader Election (stretch) + Horizontal Scaling Tests — ✅ COMPLETE on `phase45/transport`:
+  - LeaderElection state machine + LeaderRole enum: `fff4daa`
+  - 33 tests in `tests/test_leader_election.py` (412% of plan §3 floor of ≥ 8)
+  - Report: `docs/reports/PHASE45_M6_4_C_REPORT.md` (188 lines)
+  - **Gate status: ✅ PASS** — 2041 passed / 2 skipped / 0 failed (+33 net new vs 2008 pre-M6.4.C); ruff + mypy clean; A-1 verified
 
-**Frozen Interfaces:**
-- DependencyGraphValidator Base Class
-- ExecutionOrchestrator Contract
-- Quality Gate Pipeline Orchestration Contract
-- Planner Subsystem Interface (Goal, Task, DAG, Scheduler, Validator)
-- Tool Dispatcher Interface (BaseExecutor, ToolDispatcher.dispatch)
-- Orchestrator Pipeline (execute_wave_new, execute_task_step_new)
-- Engine Pipeline (execute_goal_new)
-- Tool execution runtimes (Python, Shell, File, API, Human) contract compliance
-- Agent Loop Interface (AgentLoop.run, AgentLoopResult, AgentTerminationReason)
-- LlmRuntime Interface (LlmRuntime.generate, LlmRequest, LlmResponse)
-- ReflectionEngine Interface (analyze() — Phase 24 path; reflect_and_correct() — legacy compat)
-- DecisionEngine Interface (select_tool())
-- ExecutionJournal Interface (record_iteration, export, export_text)
-- BrowserExecutor Interface (execute)
-- DbSwarmPersistence Interface (save_task, save_agent, save_snapshot, load_snapshot, save_history)
-- SwarmResumeManager Interface (recover_all)
-- SpanRepository Interface                   # Phase 27: Span persistence
-- BudgetRepository Interface                 # Phase 27: Daily+monthly budget persistence
-- ExecutionTracer Interface                  # Phase 27: Non-blocking trace span tracking
-- CostGovernor Interface                     # Phase 27: Non-blocking 4-tier LLM cost checks
-- HealthProbe Interface                      # Phase 27: Monotonic component heartbeats
-- BaseTelemetryBroadcaster Interface          # Phase 27: Bounded lossy real-time broadcasts
-- ObservabilityService Interface             # Phase 27: Subscription coordinator
-- VaultManager Interface                      # Phase 28: Cryptographically hardened symmetric credentials vault manager
-- VaultManager Operations                  # Phase 29: Key rotation, backup/restore, expiration checking
-- Vault Admin Routing                      # Phase 29: Admin rotate, backup, and restore REST endpoints
-- CloudStorageProvider Interface            # Phase 30: Cloud sync transport abstraction
-- SyncManager Interface                     # Phase 30: Encrypted sync engine with vector clocks
-- ReplicationManager Interface              # Phase 30: SQLite replication coordinator and failover promotion
-- Sync REST Gateway Routing                 # Phase 30: REST sync push/pull gateway endpoints
-- FederationManager Interface             # Phase 31: Cryptographically signed node registrations, message routing, and heartbeats
-- Federation REST Routing                 # Phase 31: REST federation message relay and peer discovery admin endpoints
-- AdminManager Interface                 # Phase 32: Diagnostics, metrics, dynamic configs, backups, and restores
-- Admin REST Gateway Routing             # Phase 32: Administration API routes and secure SPA dashboard gateway
-- DeploymentHealthManager Interface      # Phase 33: Liveness, readiness, preflight checks, and recovery verification
-- Platform REST Gateway Routing          # Phase 33: Operations and readiness endpoints
-- MissionManager Interface               # Phase 34: State machine transitions, checkpoints, rollbacks, and recovery loops
-- Missions REST Gateway Routing          # Phase 34: REST API gateway endpoints for creating, listing, and controlling missions
-- ScaleManager Interface                 # Phase 35: Load metrics assessment, peer selection, and offloading coordination
-- Federation Scale REST Routing          # Phase 35: REST API endpoints for offloading, tool execution, and load callbacks
-- BrainKernel Interface                   # Phase 37: Cognitive Loop and thinking lifecycle orchestrator
-- CognitiveState Schema                  # Phase 37: Lightweight Pydantic operational metrics
-- NeuralLayer Façade                     # Phase 37: Model Router, reasoning, planning, reflection, and learning wrapper
-- DecisionEngine Interface               # Phase 37: Policy validation safety gatekeeper
-- UnifiedMemoryManager Interface         # Phase 38: Coordinates Working, Episodic, Semantic, Procedural layers
-- KnowledgeGraph Interface               # Phase 38: Entity nodes, relationships, and property graphs
-- ContextAssembly Interface              # Phase 38: BrainKernel-ready context packaging with confidence metadata
-- MemoryCoordinator Interface            # Phase 38: Internal retrieval sequencing and conflict resolution
-- WorkflowEngine Interface               # Phase 39: Public façade for run/resume/register_template/status/cancel
-- WorkflowGraph Contract                 # Phase 39: DAG node/edge model with cycle validation
-- DAGScheduler Contract                  # Phase 39: Topological wave generator yielding parallel-ready nodes
-- RetryPolicy Contract                   # Phase 39: Configurable backoff with retryable error list
-- CheckpointStore Contract               # Phase 39: Persistence via WorkingMemory only (invariant W-4)
-- WorkflowTemplate Contract              # Phase 39: ProceduralMemory-backed reusable workflow registry
+**Frozen Files (Phase 45 contracts — DO NOT MODIFY):**
+- `docs/107_PHASE_45_PERSISTENT_AUTONOMOUS_RUNTIME_SPECIFICATION.md` (v1.2 FROZEN)
+- `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` (v1.1 FROZEN)
+- `docs/mission_state_machine.md` (FROZEN at M6.1.A — 8-event taxonomy + state diagram)
+- `docs/mission_event_contract.md` (FROZEN at M6.1.A — envelope schema; not on this branch)
+- `docs/cr/CR-4_phase45_d4_d5_idempotency_envelope.md` (APPROVED 2026-07-09)
+- `docs/cr/CR-1_phase45_state_orphan_typo.md` (DRAFT, M6.3.A gate)
+- `docs/cr/CR-2_phase45_plan_path_typos.md` (DRAFT, M6.3.A gate)
+- `docs/cr/CR-3_phase45_phase26_additive_column.md` (DRAFT, M6.3.A gate)
+- `core/mission/mission_transport.py` (M6.4.A — Protocol surface; A-1 architecture invariant)
+- `core/mission/transports/__init__.py` (M6.4.A — re-exports)
+- `core/mission/transports/envelope.py` (M6.4.B.1 — EnvelopeV1 codec; D-5; **bug-fixed at `0e1b593`** — pydantic 2.13.4 `model_dump(mode='json')` was failing on `bytes` fields; switched to `model_dump()` + UUID→str coercion. On-wire bytes unchanged; the fix produces the same shape the design intended)
+- `core/mission/transports/redis.py` (M6.4.B.2 — real RemoteTransport; cross-client delivery + Lua-script atomicity contract; **the lease primitives the M6.4.C LeaderElection consumes**)
+- `core/mission/transports/local.py` (M6.4.A — in-process transport; also consumed by M6.4.C tests)
+- `core/mission/worker_registry.py` (M6.4.A — D-1 15s grace; idempotent register/heartbeat; `list_active` sweep+read single-txn; **extended at `0e1b593`** — additive `mark_task_started` / `mark_task_completed` keyed on `(worker_id, wave_run_id)` for D-4 idempotency)
+- `core/mission/worker_process.py` (M6.4.A — CLI; no secret-on-cmdline per spec §8.3; default heartbeat 10s)
+- `core/mission/distributed_router.py` (M6.4.A — A-1 invariant; speaks only to MissionTransport Protocol; D-2 append-only; D-3 dedup; **extended at `0e1b593`** — additive `_route_remote` + `REASON_ROUTED_REMOTE` for REMOTE_PREFERRED behavior)
+- `core/mission/leader_election.py` (M6.4.C — NEW `LeaderElection` state machine + `LeaderRole` enum + `LeaderElectionError`. Single-DC only per spec §10. Speaks only to `MissionTransport` Protocol per A-1.)
+- `api/routes/distributed_pool.py` (M6.4.A — REST endpoints; auth `platform.admin`)
+- `core/runtime/mission_models.py` (additive `WorkerRegistryModel` + `TaskRoutingLogModel` + D-3 unique index)
+- `tests/test_distributed_router_remote_preferred.py` (M6.4.B — NEW 23 tests; REMOTE_PREFERRED + task accounting + A-1 AST inspection; landed at `0e1b593`)
+- `tests/test_leader_election.py` (M6.4.C — NEW 33 tests across 14 classes; landed at `fff4daa`)
 
+**Frozen Interfaces (M6.4 contracts — A-1..A-5 plan-level invariants; do not bypass):**
+- A-1: `DistributedRouter` AND `LeaderElection` must speak only to `MissionTransport` Protocol + `WorkerRegistry`. NEVER import a concrete `LocalTransport` / `RemoteTransport` / `EnvelopeV1`. Even M6.4.A's local-mode routing uses the worker registry as the single source of truth. **AST-verified by `tests/test_distributed_router_remote_preferred.py::TestA1NoConcreteTransportImport` and by static inspection of `core/mission/leader_election.py` (only `MissionTransport` is imported).**
+- A-2: Event-first architecture (reused from `MissionActor` plan; not a M6.4 file directly).
+- A-3: 8-event taxonomy frozen (referenced via `docs/mission_state_machine.md`).
+- A-4: Replay-safe checkpoints (referenced via `MissionActor` plan; not a M6.4 file directly).
+- A-5: Legacy callers oblivious. New M6.4 functionality MUST NOT require legacy Phase 34 callers to understand new columns. Additive columns NULL gracefully.
+- D-1: Worker grace = 15s. Stale workers sweep to OFFLINE on next `list_active`.
+- D-2: `task_routing_log` append-only.
+- D-3: One routing log row per `(wave_run_id, chosen_worker_id)` pair (enforced by unique index).
+- D-4 (CR-4): Runtime exactly-once, transport at-least-once. `WaveRunId` idempotency on receive. **Honoured by `WorkerRegistry.mark_task_started` / `mark_task_completed` idempotency on `(worker_id, wave_run_id)` (M6.4.B code-completion).**
+- D-5 (CR-4): All remote messages travel in a versioned `TransportEnvelope` (msgpack+zstd; `extra='ignore'` forward-compat). **Codec now correctly round-trips binary payloads after the `0e1b593` `model_dump()` fix.**
 
+**Pre-Phase 45 frozen files:** see earlier entries (Phases 1-44) — the FREEZE_LEDGER retains them but the active M6.4 work only references the Phase 45 entries above.
 
+**Updated:** 2026-07-11 19:30 NPT — post-`fff4daa` M6.4.C closure

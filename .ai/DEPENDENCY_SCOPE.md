@@ -1,27 +1,26 @@
 # DEPENDENCY SCOPE
 
-**Current Impact Radius (post-0.9.4):**
+**Current Impact Radius (`phase45/transport` at `7e53c69`):**
 
-This file is the canonical "if I touch X, what else do I need to verify?" map. The previous version pointed at `scripts/dgv.py` and `skills/cli.py` (Phase 19/20 DGV-era work). The current state reflects the post-0.9.4 reality.
+M6.4.B.2 commit `337ca64` (RemoteTransport):
+- `core/mission/transports/redis.py` affects -> `core/mission/distributed_router.py` (consumes via Protocol), `api/routes/distributed_pool.py` (no direct dep), `tests/test_remote_transport_exhaustive.py`
+- Dev deps: `fakeredis>=2.20`, `lupa>=2.0` (fakeredis Lua scripts)
 
-| If you change... | You must verify... | You may skip... |
-|------------------|--------------------|-----------------|
-| `core/skills/*` (Phase 18, 41) | `tests/test_skill_*.py`, `tests/test_runtime_fixes.py` | Memory tests, browser tests, observability tests |
-| `core/runtime/persistence_db.py` (Phase 26) | `tests/test_swarm_persistence.py` | Skills tests, API gateway tests |
-| `core/security/seed_service.py` (Phase 17) | `tests/test_runtime_fixes.py`, the capability-matrix smoke | Everything else |
-| `api/routes/skills.py` (Phase 18) | `tests/test_skill_routes.py`, `tests/test_skill_integration.py` | Memory tests, observability tests |
-| `core/observability/*` (Phase 27) | `tests/test_observability_*.py`, `tests/test_execution_tracer.py`, etc. | Skills tests, persistence tests |
-| `core/memory/*` (Phase 19, 38) | `tests/test_unified_memory.py` | Skills tests, persistence tests |
-| `core/workflow/*` (Phase 39) | `tests/test_workflow_graph_engine.py` | Memory tests, persistence tests |
-| `core/runtime/mission.py` (Phase 34) | `tests/test_mission_*.py`, `tests/test_checkpoint.py`, `tests/test_approval_gate.py`, `tests/test_multi_agent_mission.py` | Skills tests, workflow tests |
-| `core/skills/capability_registry.py` (Phase 41) | `tests/test_skill_*.py` + the capability-matrix smoke (12 probes) | Memory tests, observability tests |
-| `AGENTS.md` (frozen) | n/a — AGENTS.md is the agent constitution, not a code module | All code tests |
-| `JARVIS_EXECUTIVE_DASHBOARD.md` (doc) | n/a — dashboard is a tracking doc | All code tests |
-| `.ai/*` (state files) | n/a — agent working memory | All code tests |
-| `docs/CR/CR-XXX-*` (CR docs) | n/a — CR docs describe a future or completed change | All code tests |
+M6.4.A commit `1401b81` (transport + worker registry + router scaffold):
+- `core/mission/mission_transport.py` affects -> `core/mission/transports/*`, `core/mission/distributed_router.py`
+- `core/mission/transports/local.py` affects -> `core/mission/transports/__init__.py`
+- `core/mission/transports/envelope.py` affects -> `core/mission/transports/redis.py` (de)serialization
+- `core/mission/worker_registry.py` affects -> `core/runtime/mission_models.py` (ORM), `core/mission/distributed_router.py`
+- `core/mission/worker_process.py` affects -> `core/mission/worker_registry.py`
+- `core/mission/distributed_router.py` affects -> `core/mission/worker_registry.py` (consumes), `api/routes/distributed_pool.py`
+- `api/routes/distributed_pool.py` affects -> `api/dependencies.py`, `api/main.py`
+- `core/runtime/mission_models.py` additive only (D-3 unique index on `task_routing_log`)
 
-**Cross-cutting rules:**
+Governance retrofit commit `7e53c69`:
+- 5 docs files only. No code impact.
 
-- If you change a frozen interface (see `.ai/FREEZE_LEDGER.md` and AGENTS.md §4), a Change Request (CR) is mandatory per AGENTS.md §8. No agent may self-approve a CR.
-- If you change AGENTS.md itself, you must obey AGENTS.md §14: only add newly frozen phases to §12, only add new frozen interface pointers to §4, only refine the situation→context map in §3. Do not override rank-1-to-6 sources, do not introduce new architectural rules, do not authorize a frozen-interface change.
-- The `wt/5432577e` and `wt/5a39ff05` branches are out of scope for verification until the architect decides what to do with them.
+**Downstream (NOT touched, additive only):**
+- `core/runtime/mission.py` (FROZEN Phase 34) — MissionManager unchanged
+- `core/runtime/mission_models.py:34` MissionModel, `:58` MissionCheckpointModel — additive columns only (per CR-3.4 / CR-3.5)
+- `core/skills/capability_registry.py` (FROZEN Phase 41) — worker `capabilities["skills"]` is opaque to it
+- `core/observability/*` (FROZEN Phase 27) — M6.4 reuses EventBusInterface; no parallel event taxonomy

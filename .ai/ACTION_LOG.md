@@ -1,9 +1,17 @@
 # ACTION LOG
 
-*Append-only. Most recent at the top.*
+- 2026-07-08 (wt/5a39ff05 lineage): Phase 45 spec v1.0 → v1.2 + plan v1.0 → v1.1 frozen; CR-1/2/3 applied; M6.1.A landed (MissionActor + 8-event taxonomy + state machine).
+- 2026-07-09 (wt/5a39ff05 lineage): CR-4 approved (D-4 runtime idempotency + D-5 versioned envelope); M6.4.A + M6.4.B.1 lifted in 2405abf + e2cd9fc; M6.4.B.1 envelope codec added.
+- 2026-07-10 17:18 NPT (`phase45/transport` commit `1401b81`): M6.4.A transport layer + worker registry + distributed router scaffold lifted from `wt/5a39ff05` to `phase45/transport` (18 files, code-only, no spec/plan/CR/alembic).
+- 2026-07-10–11: 0.9.4 shipped to `main` at `ce8ebdb` (CR-002/003/004/005 merged).
+- 2026-07-11 16:55 NPT (`main` commit `31e6897`): 0.9.5-prep housekeeping — refresh .ai/ state, fix AGENTS.md §12 + dashboard drift, prune orphan worktrees.
+- 2026-07-11 17:35 NPT (`phase45/transport` commit `337ca64`): M6.4.B.2 — real `RemoteTransport` over Redis pub/sub + SETNX leases (56 new tests, 1985 passed / 2 skipped / 0 failed).
+- 2026-07-11 17:50 NPT (`phase45/transport` commit `7e53c69`): M6.4 governance retrofit — bring spec v1.2 / plan v1.1 / CR-4 / state machine from `wt/5a39ff05` to `phase45/transport` (resolves AGENTS.md §6.1 STOP — code that pointed to a missing spec is now authorized). 5 files / +1496 lines / no code/test changes.
+- 2026-07-11 19:30 NPT (`phase45/transport` commit `eb54911`): M6.4.A milestone report lift from `wt/5a39ff05` (192 lines added) — closes the RESUME_STATE.md §merge blocker. No code change.
+- 2026-07-11 19:30 NPT (`phase45/transport` commit `0e1b593`): M6.4.B code-completion — `DistributedRouter.REMOTE_PREFERRED` (publishes EnvelopeV1 over MissionTransport) + `WorkerRegistry.mark_task_started` / `mark_task_completed` (idempotent on `(worker_id, wave_run_id)`) + `envelope.py` bug fix (pydantic 2.13.4 `model_dump(mode='json')` → `model_dump()` + UUID→str coercion) + 23 new tests in `tests/test_distributed_router_remote_preferred.py` (130% of plan §3 floor of ≥ 10). 2008 passed / 2 skipped / 0 failed (+23 net new vs 1985 pre-M6.4.B). A-1 invariant AST-verified.
+- 2026-07-11 19:45 NPT (`phase45/transport` commit `fff4daa`): M6.4.C (STRETCH) — `LeaderElection` state machine + `LeaderRole` enum (CANDIDATE / FOLLOWER / LEADER / STEPPED_DOWN / RELEASED / CLOSED) + 33 new tests in `tests/test_leader_election.py` (412% of plan §3 floor of ≥ 8). Speaks only to `MissionTransport` Protocol per A-1. Single-DC scope per spec §10. 2041 passed / 2 skipped / 0 failed (+33 net new vs 2008 pre-M6.4.C). Includes split-brain simulations (2 + 3 candidates) and cross-client Redis path (fakeredis).
 
-- 16:48 NPT (2026-07-11): Closed 0.9.4 carry-forward #2 — pushed `ce8ebdb` to `origin/main`; approved CR-005; refreshed dashboard + .ai/ state files; updated AGENTS.md §12 to add Phase 42/43/44; pruned 4 prunable worktrees. (Session `mvs_1eef650acaf648eb92f68ce6275350e9`)
-- 16:09 NPT (2026-07-11): Committed `87682e5` (CR-002 fix; 11 files, +1434/-123). Closed carry-forward #1.
-- 11:28 NPT (2026-07-11): Committed `faddf89` (race-safe `save_task` via IntegrityError recovery). Pre-CR-005; superseded by `506e275` on 2026-07-11.
-- (prior sessions): `b3a1e70 feat: complete Goals #1-5, production gate, architecture freeze` (the last commit to touch the `.ai/` state files before today's refresh).
-- (historical): 14:10 — CRASH! Context exhausted during M5.5.3 build (Agent A). This stale entry is retained for traceability; the crash that produced it has long since been resolved and the M5.5.3 work has been absorbed into the standard phase-freeze cycle.
+**Open follow-up (next agent's call):**
+- M6.4 sub-stream merge to `main`: held for architect approval. Branch has 7 commits (`1401b81` + `eb54911` + `337ca64` + `7e53c69` + `0e1b593` + `fff4daa`); all gates ✅. Before merge: refresh AGENTS.md §12 row 45 + JARVIS_EXECUTIVE_DASHBOARD.md + CHANGELOG entry. Use `--no-ff` per `docs/44_GIT_WORKFLOW.md` to preserve the M6.4 sub-stream as a named branch in the merge commit.
+- Other Phase 45 sub-milestones (M6.1.B, M6.3.A/B, M6.2.A/B, M6.5.A/B): separate branches off `wt/5a39ff05` lineage (where M6.1.A already exists). Do NOT branch off `phase45/transport`.
+- LeaderElection ↔ DistributedRouter integration: future sub-milestone, out of M6.4.C scope. M6.4.C ships the primitive + tests; the integration is its own gate when M6.4 streams into a multi-leader deployment.

@@ -407,3 +407,28 @@ def get_goal_scheduler(
     from core.mission.mission_scheduler import GoalScheduler
 
     return kernel.container.resolve(GoalScheduler)
+
+
+# ---------------------------------------------------------------------------
+# Phase 45 M6.4.A — DistributedRouter + WorkerRegistry providers
+#
+# Pattern: constructed per-request (cheap, no inter-request state).
+# WorkerRegistry wraps the shared db_manager; DistributedRouter wraps
+# the registry. Both are stateless across calls.
+# ---------------------------------------------------------------------------
+
+
+def get_worker_registry() -> Any:
+    """FastAPI dependency: build a WorkerRegistry bound to the shared db."""
+    from core.mission.worker_registry import WorkerRegistry
+
+    return WorkerRegistry(db_manager=db_manager)
+
+
+def get_distributed_router(
+    registry: Any = Depends(get_worker_registry),
+) -> Any:
+    """FastAPI dependency: build a DistributedRouter bound to the registry."""
+    from core.mission.distributed_router import DistributedRouter
+
+    return DistributedRouter(worker_registry=registry)

@@ -438,6 +438,7 @@ Maintain this board. When a phase freezes, add one line here and set its spec ST
 | 42 | `docs/104_PHASE_42_IDENTITY_ENGINE_SPECIFICATION.md` | ✅ FROZEN (2026-07-06) | 44 passed (1259 total) |
 | 43 | `docs/105_PHASE_43_GOAL_ENGINE_SPECIFICATION.md` | ✅ FROZEN (2026-07-06) | (no new tests; spec freeze) |
 | 44 | `docs/106_PHASE_44_MISSION_SCHEDULER_SPECIFICATION.md` | ✅ FROZEN (2026-07-06, v1.1 per CR-001 2026-07-10) | (no new tests; v1.1 amendment) |
+| 45 | `docs/107_PHASE_45_PERSISTENT_AUTONOMOUS_RUNTIME_SPECIFICATION.md` (v1.2 FROZEN-amended, 2026-07-08, CR-1/2/3/4 applied) | 🟨 STAGED for v0.10.0 (M6.4 sub-stream COMPLETE on `phase45/transport`; merge to main pending) | 2041 on branch (vs 1761 main baseline) |
 
 
 

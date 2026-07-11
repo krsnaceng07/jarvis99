@@ -1,23 +1,25 @@
 # CURRENT TASK
 
-**Goal:** No active task. 0.9.4 release is SHIPPED to `origin/main` at `ce8ebdb` (2026-07-11 16:47 NPT). All CRs (CR-001 through CR-005) are merged. All carry-forward work is closed. All bookkeeping for the 0.9.4 cycle is done.
+**Goal:** Phase 45 / M6.4 (Distributed Execution) on `phase45/transport`. M6.4 sub-stream COMPLETE at `fff4daa` (7 commits: A + A report lift + B.1 + B.2 + governance + B code-completion + C). Ready to merge to `main` — awaiting architect approval per AGENTS.md §1 rank-5 → rank-2.
 
-**Awaiting architect direction for the next move.** Three legitimate next actions are pending the architect's choice:
+**Files Allowed (M6.4 sub-stream merge to `main`, additive only):**
+- `phase45/transport` branch → `main` (fast-forward or `--no-ff` merge per `docs/44_GIT_WORKFLOW.md`)
+- `AGENTS.md` §12 row 45 (refresh from "🔨 IN DEVELOPMENT on `phase45/transport`" to v0.10.0-prep / "🟨 STAGED" after merge)
+- `JARVIS_EXECUTIVE_DASHBOARD.md` (refresh)
+- `docs/107_PHASE_45_PERSISTENT_AUTONOMOUS_RUNTIME_SPECIFICATION.md` STATUS (FROZEN — unchanged, just bump the v1.2 FROZEN-amended note's test count reference if needed)
+- `CHANGELOG.md` (v0.10.0-prep entry per `docs/44_GIT_WORKFLOW.md`)
 
-1. **Cut the `v0.9.4-...` tag** at `ce8ebdb`. Recommended per the release-boundary push policy. No code or doc work needed — the tag is a one-command operation and a release-notes commit.
-2. **Start Phase 45 (Persistent Autonomous Runtime, Goal #6) build work.** Pre-work exists on branch `wt/5a39ff05` (M6.4.B.1 — TransportEnvelope Protocol + EnvelopeV1 codec) and `wt/5432577e` (auth admin recovery). Both branches are currently orphaned (not merged to main; the working trees are gone). Architect decision: cherry-pick, merge, or start fresh.
-3. **Address other latent housekeeping.** Out-of-scope items in the carry-forward included: replacing the optimistic-locking check with `SELECT ... FOR UPDATE` (Postgres-specific, would unfreeze Phase 26), refactoring `DbSwarmPersistence` to a Unit-of-Work pattern, expanding the capability-matrix probe set. All candidates for a separate "0.9.5 cleanup" cycle.
+**Files Forbidden:**
+- Any source code in `core/mission/`, `api/routes/distributed_pool.py`, `core/runtime/mission_models.py` (frozen by M6.4 contract; do not change in the merge commit)
+- `docs/107_*.md` / `docs/108_*.md` (FROZEN spec/plan; do not amend in the merge)
+- Any of the M6.4 milestone reports (already authored; do not re-write)
 
-**Files Allowed (for any task that does start):**
-- (per-task) — see the per-task CR doc, if any, for the allowed-modification list
-- JARVIS_EXECUTIVE_DASHBOARD.md (READ — for state)
-- .ai/PROJECT_STATE.md (READ — for state)
-- AGENTS.md (READ — for authority)
+**Success Criteria (M6.4 sub-stream merge):**
+- All 7 M6.4 commits on `phase45/transport` reach `main` (via fast-forward or `--no-ff` merge).
+- AGENTS.md §12 row 45 is refreshed to reflect the new state.
+- JARVIS_EXECUTIVE_DASHBOARD.md is refreshed.
+- CHANGELOG.md has a v0.10.0-prep entry referencing the M6.4 work.
+- Full-suite regression test passes on `main` post-merge: 2041 passed / 2 skipped / 0 failed.
+- No STOP conditions opened by the merge (per AGENTS.md §6).
 
-**Files Forbidden (carried over from prior cycles):**
-- Core business logic engines (frozen).
-- Frozen interface modules (see `.ai/FREEZE_LEDGER.md`).
-- The `wt/5432577e` and `wt/5a39ff05` branches — DO NOT cherry-pick or merge without architect approval (their working trees are gone, only branch refs remain).
-
-**Success Criteria:**
-- (next move TBD per architect)
+**Status:** Awaiting architect approval to merge the M6.4 sub-stream to `main`.

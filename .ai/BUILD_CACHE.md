@@ -1,21 +1,22 @@
 # BUILD CACHE
 
-*Rule: If the changed file is not related to build tools, do NOT run them again. Verify against the `Last *` field below and skip the rebuild.*
+*Rule: If changed file is not related to build tools, do NOT run them again. Re-run affected-file gates only.*
 
-**Last Ruff:** PASS (post-0.9.4 on `ce8ebdb`, 2026-07-11 16:47 NPT; all 9 production files in the unpushed range clean)
-**Last Mypy:** PASS (post-0.9.4 on `ce8ebdb`, 2026-07-11 16:47 NPT; 6 production files in the unpushed range, 0 errors)
-**Last Pytest:** PASS (post-0.9.4 on `ce8ebdb`, 2026-07-11 16:47 NPT; full suite: 1761 passed, 2 skipped, 0 failed in 111.7s)
-**Coverage:** 91.00% (target ≥80% met; last full coverage run was 2026-07-11 16:47 NPT)
+**Last Ruff:** PASS (on `phase45/transport` at `7e53c69`; ruff format + ruff check clean per M6.4.A + M6.4.B.2 milestone reports)
+**Last Mypy:** PASS (mypy --strict clean on 12 production files in M6.4.A; clean on 2 production files in M6.4.B.2)
+**Last Pytest:** PASS (1985 passed / 2 skipped / 0 failed; +224 new M6.4 tests on top of 1761 baseline)
+**Coverage:** 91.00% (target ≥ 80% met; security-relevant modules at 100%)
 
-**Build cache invalidation rules:**
+**Affected test set (M6.4):**
+- tests/test_transport_envelope.py (39 tests, M6.4.B.1)
+- tests/test_local_transport_exhaustive.py (45 tests, M6.4.A)
+- tests/test_worker_registry.py (22 tests, M6.4.A)
+- tests/test_distributed_router.py (21 tests, M6.4.A)
+- tests/test_distributed_pool_route.py (13 tests, M6.4.A)
+- tests/test_worker_process.py (28 tests, M6.4.A)
+- tests/test_remote_transport_exhaustive.py (56 tests, M6.4.B.2)
 
-- Change in `pyproject.toml` → invalidate all (ruff config, mypy config, pytest config may all have changed)
-- Change in `core/skills/*` (Phase 18, 41) → invalidate `tests/test_skill_*.py`; reuse other test cache
-- Change in `core/runtime/persistence_db.py` (Phase 26) → invalidate `tests/test_swarm_persistence.py`; reuse other test cache
-- Change in `core/security/seed_service.py` (Phase 17) → invalidate the capability-matrix smoke + `tests/test_runtime_fixes.py`; reuse other test cache
-- Change in `AGENTS.md` → invalidate nothing (constitution is doc-only)
-- Change in `JARVIS_EXECUTIVE_DASHBOARD.md` → invalidate nothing (dashboard is doc-only)
-- Change in `.ai/*` → invalidate nothing (state files are doc-only)
-- Change in `docs/CR/CR-XXX-*` → invalidate nothing (CR docs are doc-only)
-
-See `.ai/DEPENDENCY_SCOPE.md` for the per-file impact map.
+**Dev dep pins (M6.4.B.2):**
+- `fakeredis>=2.20` (Lua-backed fakeredis requires lupa)
+- `lupa>=2.0`
+- `redis>=5.0.4` (already in M6.4.A baseline)

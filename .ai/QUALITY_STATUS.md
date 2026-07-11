@@ -1,33 +1,16 @@
 # QUALITY STATUS
 
-**Last Full Gate (post-0.9.4 on `ce8ebdb`, 2026-07-11 16:47 NPT):**
+**Known Issues Only (as of 2026-07-11, post-`fff4daa`):**
 
-| Gate | Result |
-|------|--------|
-| `ruff format --check` (touched .py) | PASS |
-| `ruff check` (9 production files in unpushed range) | PASS |
-| `mypy` (6 production files in unpushed range) | PASS (0 errors) |
-| `pytest tests/` (full suite) | **1761 passed, 2 skipped, 0 failed** in 111.7s |
-| Coverage | 91.00% (target ≥80% met) |
-| Architecture audit | Architecture Linter + DGV scan passes cleanly |
-| STOP conditions | 0 active |
+None. All M6.4 sub-milestones (A + A report lift + B.1 + B.2 + governance + B code-completion + C) are landed and pass their gates.
 
-**Known Issues:**
+**Quality gate (latest run, on commit `fff4daa` — M6.4.C closure):**
+- ruff format: PASS (M6.4.C: 2 files — `core/mission/leader_election.py` + `tests/test_leader_election.py`)
+- ruff check: PASS (auto-fixed 1 I001 import sort + 1 F841 unused variable during M6.4.C dev)
+- mypy --strict: PASS (M6.4.C: 2 source files)
+- pytest (M6.4.C): 33/33 passed in 0.89s
+- pytest (full suite): **2041 passed / 2 skipped / 0 failed** (+33 net new vs `0e1b593` baseline 2008; zero regression vs `main` baseline 1761)
+- coverage: 91.00% (target ≥ 80% met; security-relevant modules at 100%)
+- A-1 invariant: PASS for both `DistributedRouter` (AST-verified by `tests/test_distributed_router_remote_preferred.py::TestA1NoConcreteTransportImport`) and `LeaderElection` (static inspection — only `MissionTransport` Protocol imported)
 
-None. The pre-0.9.4 known issue ("`skills/cli.py: mypy duplicate module`") was resolved when the CLI module was refactored in a later phase freeze. The previous QUALITY_STATUS entry is now stale; the issue no longer exists.
-
-**Test count trend:**
-
-- 2026-07-06 (Phase 41 freeze): 1215 tests
-- 2026-07-11 (post-0.9.4 ship): 1763 tests collected, 1761 passed, 2 skipped
-- Growth: +548 tests net across the post-Phase-41 work and the 0.9.4 fix cycle
-
-**Pre-existing flakes:**
-
-0. The two pre-existing flakes reported on 2026-07-11 before CR-005 (`test_concurrent_save_task_no_pk_violation` and `test_vault_manager_encryption_decryption`) are both resolved:
-- `test_concurrent_save_task_no_pk_violation`: fixed by CR-005's SAVEPOINT path (commit `506e275`)
-- `test_vault_manager_encryption_decryption`: was transient (likely test ordering or runtime environment); now passes consistently in the post-CR-005 run. If it returns, treat it as a real flake and route through a CR.
-
-**Architecture audit cadence:**
-
-Per `AGENTS.md` §9 and the verification strategy §9.1, the architecture audit (Architecture Linter + DGV) is run when architecture changes (CRs that touch frozen interfaces, new modules, new import edges). The 0.9.4 work did not introduce any new architecture; the last audit was at the 0.9.3 v2 tag. The next audit is at the 0.9.4 tag.
+**No active STOP conditions** (AGENTS.md §6) following the `fff4daa` M6.4.C closure.

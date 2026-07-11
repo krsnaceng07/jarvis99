@@ -1,48 +1,45 @@
 # IMPACT GRAPH
 
-*Rule: Use this to determine exactly which tests to rerun based on file changes. For the full per-file map, see `.ai/DEPENDENCY_SCOPE.md`.*
+*Rule: Use this to determine exactly which tests to rerun based on file changes.*
 
-**If `core/skills/*` changes:**
-- Need to rerun: `tests/test_skill_*.py` (skill_routes, skill_integration, skill_repository, skill_sandbox, skill_installer), `tests/test_runtime_fixes.py`
-- Need NOT rerun: Memory tests, browser tests, observability tests, swarm persistence tests
+**If `core/mission/mission_transport.py` changes:**
+- Need to rerun: ALL M6.4 tests (transport envelope, local, redis, router, registry, worker_process, distributed_pool)
+- Need NOT rerun: Mission runtime tests (Phase 34 frozen)
 
-**If `core/runtime/persistence_db.py` changes (Phase 26):**
-- Need to rerun: `tests/test_swarm_persistence.py` (especially `TestSaveTaskRaceSafeUpsert` if you changed `_save_task_internal`)
-- Need NOT rerun: Skills tests, API gateway tests, capability matrix tests
+**If `core/mission/transports/local.py` changes:**
+- Need to rerun: `tests/test_local_transport_exhaustive.py`, `tests/test_transport_envelope.py` (in-process envelope round-trip)
+- Need NOT rerun: Redis-specific tests, registry tests, router tests
 
-**If `core/security/seed_service.py` changes (Phase 17):**
-- Need to rerun: `tests/test_runtime_fixes.py`, the capability-matrix smoke (12 probes)
-- Need NOT rerun: Memory tests, observability tests, workflow tests
+**If `core/mission/transports/redis.py` changes:**
+- Need to rerun: `tests/test_remote_transport_exhaustive.py` (fakeredis), `tests/test_transport_envelope.py` (de)serialization
+- Need NOT rerun: Local-only tests, registry tests
 
-**If `api/routes/skills.py` changes (Phase 18):**
-- Need to rerun: `tests/test_skill_routes.py`, `tests/test_skill_integration.py`
-- Need NOT rerun: Memory tests, observability tests, swarm persistence tests
+**If `core/mission/transports/envelope.py` changes:**
+- Need to rerun: `tests/test_transport_envelope.py` (all 39), `tests/test_remote_transport_exhaustive.py` (envelope round-trip)
+- Need NOT rerun: Registry tests, worker_process tests
 
-**If `core/observability/*` changes (Phase 27):**
-- Need to rerun: `tests/test_observability_*.py`, `tests/test_execution_tracer.py`, `tests/test_cost_governor.py`, `tests/test_health_probe.py`, `tests/test_telemetry_broadcaster.py`
-- Need NOT rerun: Skills tests, persistence tests, capability matrix tests
+**If `core/mission/worker_registry.py` changes:**
+- Need to rerun: `tests/test_worker_registry.py`, `tests/test_distributed_router.py` (router uses registry), `tests/test_distributed_pool_route.py` (REST uses registry via router)
+- Need NOT rerun: Transport tests, envelope tests, worker_process tests
 
-**If `core/memory/*` changes (Phase 19, 38):**
-- Need to rerun: `tests/test_unified_memory.py`
-- Need NOT rerun: Skills tests, persistence tests, observability tests
+**If `core/mission/worker_process.py` changes:**
+- Need to rerun: `tests/test_worker_process.py`
+- Need NOT rerun: Router tests, transport tests
 
-**If `core/workflow/*` changes (Phase 39):**
-- Need to rerun: `tests/test_workflow_graph_engine.py`
-- Need NOT rerun: Memory tests, persistence tests, observability tests
+**If `core/mission/distributed_router.py` changes:**
+- Need to rerun: `tests/test_distributed_router.py`, `tests/test_distributed_pool_route.py` (REST routes), `tests/test_worker_registry.py` (router ↔ registry interaction)
+- Need NOT rerun: Transport-impl tests (router speaks to the Protocol, not concrete impls)
 
-**If `core/runtime/mission.py` changes (Phase 34):**
-- Need to rerun: `tests/test_mission_*.py`, `tests/test_checkpoint.py`, `tests/test_approval_gate.py`, `tests/test_multi_agent_mission.py`, `tests/test_mission_coverage_boost.py`
-- Need NOT rerun: Skills tests, workflow tests
+**If `api/routes/distributed_pool.py` changes:**
+- Need to rerun: `tests/test_distributed_pool_route.py`
+- Need NOT rerun: Core-mission tests (routes depend on the router via DI)
 
-**If `core/skills/capability_registry.py` changes (Phase 41):**
-- Need to rerun: `tests/test_skill_*.py` + the capability-matrix smoke
-- Need NOT rerun: Memory tests, observability tests
+**If `core/runtime/mission_models.py` changes (additive columns only):**
+- Need to rerun: ALL M6.4 tests + Phase 34 mission tests (regression)
+- Need NOT rerun: Skills, observability, vault tests
 
-**Doc-only changes (AGENTS.md, dashboard, .ai/, docs/CR/, docs/releases/):**
-- Need to rerun: nothing
-- Optional sanity: `git diff --name-only` to confirm no code slipped in
+**If any `docs/107`, `docs/108`, `docs/mission_state_machine.md`, or `docs/cr/CR-4` changes:**
+- Re-read the affected doc; verify the code's docstring headers + invariants still match. No tests to rerun (docs are not executable).
 
-**Cross-cutting changes (e.g. Pydantic version bump, SQLAlchemy version bump):**
-- Need to rerun: full suite
-- Need to run: the capability-matrix smoke + the e2e smoke
-- Need to update: the verification commands in `AGENTS.md` §9.1 if the test runner changed
+**If `pyproject.toml` (dev deps) changes:**
+- Re-run the full M6.4 test set (fakeredis + lupa versions can change Lua-script semantics).
