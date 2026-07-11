@@ -161,6 +161,7 @@ JARVIS_CODEBASE_ANALYSIS.html
 .audit/*.log
 .audit/*.csv
 .audit/*.json
+.audit/*.py
 
 # Root-level transient validation artifacts — regenerated on every run.
 # These get clobbered by the test harness and contain MagicMock reprs
