@@ -58,8 +58,9 @@ class DbSwarmPersistence(SwarmPersistence):
         the same task_id concurrently, both may observe a missing row in the
         initial SELECT, and one of them will lose the subsequent INSERT to
         the primary-key UNIQUE constraint. That IntegrityError is recovered
-        by rolling back the failed insert, re-fetching the row that the
-        winning session just committed, and applying the update path.
+        by rolling back the failed insert (via a SAVEPOINT so the outer
+        transaction stays alive), re-fetching the row that the winning
+        session committed, and applying the update path.
 
         See docs/releases/RELEASE_0.9.3_PLATFORM_RUNTIME_STABILIZATION_v2.md
         for the runtime context (LLM-failure replan path triggering the race
@@ -96,35 +97,46 @@ class DbSwarmPersistence(SwarmPersistence):
         model = res.scalar_one_or_none()
 
         if model is None:
+            # Use a SAVEPOINT for the INSERT attempt so a UNIQUE/PK violation
+            # is recovered by rolling back to the savepoint — the outer
+            # transaction (opened by the caller via ``async with
+            # session.begin():``) stays alive, and the recovery SELECT/UPDATE
+            # can proceed without a "Can't operate on closed transaction"
+            # error. Pre-CR-005, the code called ``session.rollback()``
+            # which closed the outer transaction and crashed the recovery
+            # path with a non-deterministic rate (CR-005 flake).
             try:
-                model = SwarmTaskModel(
-                    task_id=task.task_id,
-                    goal=task.goal,
-                    priority=task.priority,
-                    status=task.status,
-                    capabilities=task.capabilities,
-                    timeout=task.timeout,
-                    retry=task.retry,
-                    dependencies=(
-                        [str(d) for d in task.dependencies] if task.dependencies else []
-                    ),
-                    metadata_=task.metadata,
-                    version=1,
-                )
-                session.add(model)
-                # Flush so a UNIQUE/PK violation surfaces here, recoverable
-                # via the except branch below. Without this flush, the
-                # IntegrityError would only be raised at transaction commit
-                # time — outside our try/except — and would crash the
-                # whole session instead of being demoted to an UPDATE.
-                await session.flush()
+                async with session.begin_nested():
+                    model = SwarmTaskModel(
+                        task_id=task.task_id,
+                        goal=task.goal,
+                        priority=task.priority,
+                        status=task.status,
+                        capabilities=task.capabilities,
+                        timeout=task.timeout,
+                        retry=task.retry,
+                        dependencies=(
+                            [str(d) for d in task.dependencies]
+                            if task.dependencies
+                            else []
+                        ),
+                        metadata_=task.metadata,
+                        version=1,
+                    )
+                    session.add(model)
+                    # Flush so a UNIQUE/PK violation surfaces here, recoverable
+                    # via the except branch below. Without this flush, the
+                    # IntegrityError would only be raised at transaction commit
+                    # time — outside our try/except — and would crash the
+                    # whole session instead of being demoted to an UPDATE.
+                    await session.flush()
             except IntegrityError:
                 # Concurrent writer won the race: another session INSERTed
-                # the same task_id between our SELECT and our flush. Roll
-                # back our failed insert, refetch the row that the winning
-                # session committed, and apply the update path so the
-                # caller's intent (status change, version bump) is honored.
-                await session.rollback()
+                # the same task_id between our SELECT and our flush. The
+                # SAVEPOINT has already been rolled back by ``begin_nested``'s
+                # context manager; the outer transaction is still alive, so
+                # we can re-fetch the row that the winning session committed
+                # and apply the update path.
                 res = await session.execute(q)
                 model = res.scalar_one()
                 _apply_update(model)

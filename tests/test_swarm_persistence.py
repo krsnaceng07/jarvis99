@@ -929,8 +929,19 @@ class TestSaveTaskRaceSafeUpsert:
 
     @pytest.mark.asyncio
     async def test_integrity_error_recovered_as_update(self) -> None:
-        """Directly exercise the IntegrityError → rollback → re-fetch → UPDATE
-        branch by mocking the session to fail the first flush."""
+        """Directly exercise the IntegrityError → SAVEPOINT rollback →
+        re-fetch → UPDATE branch by mocking the session to fail the first
+        flush.
+
+        CR-005 fix: the pre-CR-005 implementation called
+        ``session.rollback()`` on the outer transaction, which closed the
+        transaction and broke the recovery path. The post-CR-005
+        implementation uses ``session.begin_nested()`` (a SAVEPOINT) so
+        only the SAVEPOINT is rolled back, leaving the outer transaction
+        alive for the recovery SELECT and UPDATE.
+        """
+        from contextlib import asynccontextmanager
+
         from sqlalchemy.exc import IntegrityError
 
         from core.runtime.persistence_db import DbSwarmPersistence
@@ -954,9 +965,10 @@ class TestSaveTaskRaceSafeUpsert:
         )
 
         # Mock session: first SELECT → None, flush → IntegrityError,
-        # post-rollback SELECT → the existing model.
+        # post-SAVEPOINT-rollback SELECT → the existing model.
         select_call_count = {"n": 0}
         flushed = {"n": False}
+        begin_nested_called = {"n": False}
         rolled_back = {"n": False}
 
         mock_session = MagicMock()
@@ -980,11 +992,25 @@ class TestSaveTaskRaceSafeUpsert:
             )
 
         async def fake_rollback() -> None:
+            # CR-005: rollback on the OUTER transaction is forbidden —
+            # the recovery path needs a live transaction for the
+            # re-SELECT and UPDATE. The SAVEPOINT context manager
+            # handles the partial rollback internally.
             rolled_back["n"] = True
+
+        @asynccontextmanager
+        async def fake_begin_nested() -> Any:
+            begin_nested_called["n"] = True
+            # Pass-through context manager; the IntegrityError raised by
+            # the inner flush bubbles up and is caught by the outer
+            # except clause. No explicit rollback call is needed here
+            # because the SAVEPOINT is auto-released on __aexit__.
+            yield mock_session
 
         mock_session.execute.side_effect = fake_execute
         mock_session.flush.side_effect = fake_flush
         mock_session.rollback.side_effect = fake_rollback
+        mock_session.begin_nested.side_effect = fake_begin_nested
         mock_session.add = MagicMock()
 
         persistence = DbSwarmPersistence()
@@ -1003,10 +1029,21 @@ class TestSaveTaskRaceSafeUpsert:
         # Should NOT raise — the IntegrityError is caught and recovered.
         await persistence._save_task_internal(task, mock_session)
 
-        # Verify the recovery path actually executed.
+        # Verify the SAVEPOINT path actually executed.
         assert flushed["n"], "session.flush() was not called"
-        assert rolled_back["n"], "session.rollback() was not called"
-        # Two SELECTs: pre-flush (miss) + post-rollback (hit).
+        assert begin_nested_called["n"], (
+            "session.begin_nested() was not called — the CR-005 fix uses a "
+            "SAVEPOINT for the INSERT attempt, not an outer rollback."
+        )
+        # CR-005 invariant: the OUTER transaction is never rolled back.
+        # The recovery SELECT/UPDATE must happen inside a live transaction.
+        assert not rolled_back["n"], (
+            "session.rollback() was called on the outer transaction — this "
+            "closes the transaction and breaks the recovery path. The fix "
+            "uses a SAVEPOINT (begin_nested) so the outer transaction stays "
+            "alive."
+        )
+        # Two SELECTs: pre-flush (miss) + post-SAVEPOINT-rollback (hit).
         assert select_call_count["n"] == 2
         # The update path applied the new state to the existing row.
         assert existing_model.status == "Claimed"
