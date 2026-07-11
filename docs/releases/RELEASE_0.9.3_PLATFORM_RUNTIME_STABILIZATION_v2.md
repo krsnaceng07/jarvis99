@@ -351,6 +351,69 @@ auditable via the `git log a0e2c2a..4590631` range, and
 are summarized in the table above. No behavior in the
 tagged release is changed by the addendum.
 
+### 9.5 Doc drift closure — CR-002 ships on `main`; will roll into 0.9.4 (2026-07-11 update)
+
+The 10 commits listed in §9.4 were the post-`a0e2c2a`
+state at the time of the §9.4 addendum. Since then,
+**two more commits have landed on `main`** that close
+the runtime gap §9.4 alluded to ("the additional
+commits are documentation / hygiene / test-only, not
+behavioral" — the 0.9.4 work proves this is no longer
+strictly true; the behavioral fix lives in CR-002):
+
+| # | Hash | Type | One-line |
+|---|------|------|----------|
+| 15 | `87682e5` | fix(skills) | align install/remove runtime with Phase 18 / 41 spec (CR-002) |
+| 16 | `50e461a` | chore(artifacts) | track e2e smoke + demo skill; gitignore `.audit/*.txt` |
+
+**`87682e5` is the CR-002 fix** — 5 bugs in the Phase 18
+skill install/remove runtime (Repository session crash,
+SandboxTestRunner unconditional Docker registration,
+install route placeholder signature, lost ACTIVE state
+on restart, missing `skill.install`/`skill.remove`
+seed permissions). All changes are additive; no public
+contract, no API endpoint, no DTO is changed. The
+full diagnosis + 5 fixes + 6 new/strengthened tests are
+documented in `docs/CR/CR-002-skill-install-remove-runtime.md`.
+
+**`50e461a` is housekeeping** — the e2e smoke script
+and demo skill package that CR-002's tests reference
+are now tracked, and `.audit/*.txt` runtime output
+dumps are gitignored alongside the existing
+`.log/.csv/.json/.py` siblings.
+
+**Tag strategy (architect decision, 2026-07-11):**
+**No new tag.** CR-002 is a single-commit behavioral
+fix, not a release-worthy feature, and tagging it
+would force version-management overhead (a separate
+hotfix release that ships nothing user-facing beyond
+the fix) for marginal benefit. The fix is reachable
+on `main` at `87682e5`; when 0.9.4 is tagged (the
+next planned release), this commit will roll into the
+0.9.4 tag naturally. If an emergency hotfix is needed
+in the interim, `git cherry-pick 87682e5` to a
+hotfix branch is the supported path.
+
+**Full main-line progression since 0.9.3 v2 tag:**
+
+```
+a0e2c2a ── tag v0.9.3-platform-runtime-stabilization-v2 (sealed)
+   │
+   ├── 4..14: 10 commits documented in §9.4
+   │
+   ├── 87682e5: CR-002 (the runtime fix)
+   │
+   └── 50e461a: housekeeping
+```
+
+**Severity:** low. The 0.9.3 v2 tag remains sealed at
+`a0e2c2a` and the 3-commit core is unchanged. The
+additional 12 commits (10 from §9.4 + 2 from this
+section) are present on `main` and will roll into
+the next release boundary (0.9.4) when it is tagged.
+No behavior in the tagged 0.9.3 v2 release is
+affected by this addendum.
+
 ## 10. Deferred Work
 
 | Item | Reason | Target |
