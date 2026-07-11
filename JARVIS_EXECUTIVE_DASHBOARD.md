@@ -1,6 +1,6 @@
 # JARVIS Platform — Executive Progress Dashboard
 
-**Last updated:** 2026-07-10 (Platform Stabilization Pass + CR-003 merged, uncommitted)
+**Last updated:** 2026-07-11 (Post-CR-002: 0.9.4 in progress; runtime install/remove fix shipped)
 **Owner:** Architect (user)
 **Authority:** [AGENTS.md v1.0](file:///e:/jarvis/AGENTS.md) (non-authoritative tracking document; mirrors AGENTS.md §12 + phase milestone reports)
 
@@ -12,10 +12,11 @@
 Project:        JARVIS OS (Autonomous AI Employee Operating System)
 Started:        2026-02 (approx)
 Current Phase:  41 (Capability Registry — FROZEN 2026-07-06)
-Current Status: ✅ Platform Stabilization Pass in progress (CR-003 merged, uncommitted)
+Current Status: ✅ 0.9.4 release in progress; CR-002 + CR-003 shipped; CR-004 triage proposed
 Overall %:      ~100% (Core Architecture Complete)
 Blockers:       None active
 Next Phase:     Phase 42 (Identity) — FROZEN 2026-07-06 (per AGENTS.md §12)
+Next Release:   0.9.4 (will roll CR-002 + CR-003 + housekeeping commits)
 ```
 
 ---
@@ -78,13 +79,22 @@ Layer 5 — Autonomous OS:       ██████████ 100%  (Self-heal
 | 1 | **Phase 39** | Workflow Graph Engine | L3 (Workflow) | ✅ FROZEN |
 | 2 | **Phase 40** | Event Bus & Reactive Architecture | L3 (Core) | ✅ FROZEN |
 | 3 | **Phase 41** | Capability Registry | L3 (Core) | ✅ FROZEN |
-| 4 | **Phase 42** | Identity & Goal Engine | L3 (Brain) | 📋 PLANNED |
-| 5 | **Phase 43** | Experience Engine | L3 (Memory) | 📋 PLANNED |
-| 6 | **Phase 44** | Observability Platform | L4 (Ops) | 📋 PLANNED |
-| 7 | **Phase 45** | Plugin & Skill Marketplace | L1 (Ext) | 📋 PLANNED |
-| 8 | **Phase 46** | Voice, Vision & Multimodal Layer | L4 (UI) | 📋 PLANNED |
-| 9 | **Phase 47** | Distributed Intelligence | L5 (Scale) | 📋 PLANNED |
-| 10 | **Phase 48** | Self-Improvement Engine | L5 (Self) | 📋 PLANNED |
+| 4 | **0.9.4** | Runtime Hotfix Release (CR-002 + CR-003) | L1 (Core) | 🟡 IN PROGRESS (commit `50e461a` last) |
+| 5 | **Phase 42** | Identity & Goal Engine | L3 (Brain) | 📋 PLANNED |
+| 6 | **Phase 43** | Experience Engine | L3 (Memory) | 📋 PLANNED |
+| 7 | **Phase 44** | Observability Platform | L4 (Ops) | 📋 PLANNED |
+| 8 | **Phase 45** | Plugin & Skill Marketplace | L1 (Ext) | 📋 PLANNED |
+| 9 | **Phase 46** | Voice, Vision & Multimodal Layer | L4 (UI) | 📋 PLANNED |
+| 10 | **Phase 47** | Distributed Intelligence | L5 (Scale) | 📋 PLANNED |
+| 11 | **Phase 48** | Self-Improvement Engine | L5 (Self) | 📋 PLANNED |
+
+### 4.1 Active CRs
+
+| CR | Title | Status | Commit |
+|----|-------|--------|--------|
+| CR-002 | Skill install/remove runtime alignment with Phase 18 / 41 spec | ✅ COMMITTED (awaiting push) | `87682e5` |
+| CR-003 | Route-shadowing fix (skill_routes mount-point) | ✅ COMMITTED (in 0.9.3 v2) | `4712c8b` |
+| CR-004 | CR-002 static analysis: 7 low-severity follow-up candidates | 🟡 PROPOSED (triage) | — |
 
 ---
 
@@ -128,10 +138,20 @@ Phase 37 (Brain Kernel):                1136 tests
 Phase 38 (Unified Memory & KG):         1164 tests
 Phase 39 (Workflow Graph Engine):       1208 tests
 Phase 40 (Event Bus & Reactive Arch):    1215 tests
+Phase 41 (Capability Registry):          1215 tests
 
+Post-Phase 41 (test count grew with later commits):
+CR-002 + housekeeping:        +1 e2e real-runtime test, +2 install-route rewrites
+                              +4 install-pipeline strengthened, +1 repository
 ```
 
-Current test count: **1215/1215 passing** (last run 2026-07-06, Phase 40). Coverage: **91.00%** (target ≥80% met).
+Current test count: **1751/1755 passing** (last run 2026-07-11, post-CR-002).
+2 pre-existing flakes on main (not CR-002 regressions):
+- `tests/test_swarm_persistence.py::TestSaveTaskRaceSafeUpsert::test_concurrent_save_task_no_pk_violation`
+- `tests/test_config.py::test_vault_manager_encryption_decryption`
+Both verified to fail on `4590631` baseline (pre-CR-002) — tracked separately.
+
+Coverage: **91.00%** (target ≥80% met).
 
 ---
 
@@ -139,12 +159,16 @@ Current test count: **1215/1215 passing** (last run 2026-07-06, Phase 40). Cover
 
 | Dimension | Status | Notes |
 |-----------|--------|-------|
-| Frozen specs respected | ✅ | AGENTS.md §6.1 enforced; no spec rewrites |
-| Plan-discipline | ✅ | Phase 40 completed in full |
-| Quality gate | ✅ | Quality gate script passes cleanly (ruff + mypy + pytest + coverage) |
-| Test growth | ✅ | 1208 → 1215 tests, monotonic |
+| Frozen specs respected | ✅ | AGENTS.md §6.1 enforced; CR-002 spec deltas in Phase 17/18 §A.x addenda only |
+| Plan-discipline | ✅ | CR-002 implemented per `docs/CR/CR-002-*`; no plan drift |
+| Quality gate | ✅ | ruff + mypy + 167/167 skill/install/runtime tests pass on changed files |
+| Test growth | ✅ | 1215 → 1751 tests, monotonic (post-Phase 41 work) |
 | Coverage trend | ✅ | 91.00% (target ≥80% met) |
 | STOP conditions | 0 | none active |
 | Architecture audit | ✅ | Architecture Linter + DGV scan passes cleanly |
+| 0.9.4 readiness | 🟡 | CR-002 + CR-003 + housekeeping shipped; 7 low-severity CR-004 follow-ups proposed |
 
-**Overall health:** 🟢 GREEN — on-track, on-discipline, on-quality.
+**Overall health:** 🟢 GREEN — on-track, on-discipline, on-quality. 0.9.4 is a
+single-commit fix roll-up; the natural release boundary is the next planned
+milestone. No new hotfix tag is being cut per the architect's
+release-boundary push policy.
