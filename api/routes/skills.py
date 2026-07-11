@@ -209,7 +209,7 @@ async def remove_skill(
 # ---------------------------------------------------------------------------
 
 
-@router.get("")
+@router.get("/")
 async def list_skills(
     request: Request,
     registry: SkillRegistry = Depends(_get_registry),

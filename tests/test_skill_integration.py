@@ -471,7 +471,10 @@ class TestAPIIntegration:
             return None
 
         app = FastAPI()
-        app.include_router(router)
+        # Phase 18 spec: skills router is mounted at /api/v1/skills in production
+        # (api/main.py:158, CR-002). Mirror the prefix here so the empty-path
+        # list_skills route resolves cleanly.
+        app.include_router(router, prefix="/api/v1/skills")
         app.dependency_overrides[_get_installer] = lambda: installer
         app.dependency_overrides[_get_registry] = lambda: registry
         app.dependency_overrides[_require_install] = _noop_auth
@@ -487,7 +490,7 @@ class TestAPIIntegration:
         installer, _, registry, _ = _make_installer(tmp_path)
         client = self._build_app(installer, registry)
 
-        response = client.post("/install?skill_name=testskill")
+        response = client.post("/api/v1/skills/install?skill_name=testskill")
 
         assert response.status_code == 201
         body = response.json()
@@ -504,7 +507,7 @@ class TestAPIIntegration:
         pkg = _downloaded_package(tmp_path)
         await installer.install(_valid_manifest(), pkg, caller_id="api")
 
-        response = client.post("/remove?skill_name=testskill")
+        response = client.post("/api/v1/skills/remove?skill_name=testskill")
         assert response.status_code == 200
         assert response.json()["success"] is True
 
@@ -513,7 +516,7 @@ class TestAPIIntegration:
         installer, _, registry, _ = _make_installer(tmp_path)
         client = self._build_app(installer, registry)
 
-        response = client.post("/remove?skill_name=ghost")
+        response = client.post("/api/v1/skills/remove?skill_name=ghost")
         assert response.status_code == 404
 
     @pytest.mark.asyncio
@@ -521,7 +524,7 @@ class TestAPIIntegration:
         installer, _, registry, _ = _make_installer(tmp_path)
         client = self._build_app(installer, registry)
 
-        response = client.get("/")
+        response = client.get("/api/v1/skills")
         assert response.status_code == 200
         body = response.json()
         assert body["success"] is True
@@ -532,7 +535,7 @@ class TestAPIIntegration:
         installer, _, registry, _ = _make_installer(tmp_path)
         client = self._build_app(installer, registry)
 
-        response = client.get("/search?q=test.skill.execute")
+        response = client.get("/api/v1/skills/search?q=test.skill.execute")
         assert response.status_code == 200
         assert response.json()["data"]["total"] == 0
 
@@ -545,7 +548,7 @@ class TestAPIIntegration:
         pkg = _downloaded_package(tmp_path)
         await installer.install(_valid_manifest(), pkg, caller_id="api")
 
-        response = client.get("/testskill")
+        response = client.get("/api/v1/skills/testskill")
         assert response.status_code == 200
         assert response.json()["data"]["id"] == "testskill"
 
@@ -554,7 +557,7 @@ class TestAPIIntegration:
         installer, _, registry, _ = _make_installer(tmp_path)
         client = self._build_app(installer, registry)
 
-        response = client.get("/ghost")
+        response = client.get("/api/v1/skills/ghost")
         assert response.status_code == 404
 
 
