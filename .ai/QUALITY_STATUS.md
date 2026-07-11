@@ -1,16 +1,16 @@
 # QUALITY STATUS
 
-**Known Issues Only (as of 2026-07-11, post-`7e53c69`):**
+**Known Issues Only (as of 2026-07-11, post-`fff4daa`):**
 
-- `DistributedRouter.REMOTE_PREFERRED` raises `NotImplementedError` (Priority: MEDIUM — plan-listed M6.4.B deliverable; not a spec gap, just unimplemented)
-- `WorkerRegistry.mark_task_started` / `mark_task_completed` not present (Priority: MEDIUM — same)
-- `tests/test_distributed_router_remote_preferred.py` does not exist (Priority: MEDIUM — same)
+None. All M6.4 sub-milestones (A + A report lift + B.1 + B.2 + governance + B code-completion + C) are landed and pass their gates.
 
-**Quality gate (latest run, on commit `337ca64`):**
-- ruff format: PASS
-- ruff check: PASS
-- mypy --strict: PASS (12 production files in M6.4.A; 2 production files in M6.4.B.2)
-- pytest: 1985 passed / 2 skipped / 0 failed (zero regression vs `main` baseline 1761)
+**Quality gate (latest run, on commit `fff4daa` — M6.4.C closure):**
+- ruff format: PASS (M6.4.C: 2 files — `core/mission/leader_election.py` + `tests/test_leader_election.py`)
+- ruff check: PASS (auto-fixed 1 I001 import sort + 1 F841 unused variable during M6.4.C dev)
+- mypy --strict: PASS (M6.4.C: 2 source files)
+- pytest (M6.4.C): 33/33 passed in 0.89s
+- pytest (full suite): **2041 passed / 2 skipped / 0 failed** (+33 net new vs `0e1b593` baseline 2008; zero regression vs `main` baseline 1761)
 - coverage: 91.00% (target ≥ 80% met; security-relevant modules at 100%)
+- A-1 invariant: PASS for both `DistributedRouter` (AST-verified by `tests/test_distributed_router_remote_preferred.py::TestA1NoConcreteTransportImport`) and `LeaderElection` (static inspection — only `MissionTransport` Protocol imported)
 
-**No active STOP conditions** (AGENTS.md §6) following the `7e53c69` governance retrofit.
+**No active STOP conditions** (AGENTS.md §6) following the `fff4daa` M6.4.C closure.

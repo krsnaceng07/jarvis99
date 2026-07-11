@@ -2,22 +2,25 @@
 
 *Rule: Start execution EXACTLY from this point if resuming.*
 
-**Resume From:** `phase45/transport` commit `7e53c69` (post-governance-retrofit)
-**Resume Function:** N/A — at decision boundary. Architect calls the next move.
+**Resume From:** `phase45/transport` commit `fff4daa` (post-M6.4.C closure)
+**Resume Function:** M6.4 sub-stream COMPLETE (A + A report lift + B.1 + B.2 + B code-completion + C). Next action is the M6.4 sub-stream merge to `main` (architect approval required per AGENTS.md §1 rank-5 → rank-2).
 **Resume File:** N/A
 
-**If architect says "complete M6.4.B code-completion":**
-- Resume at: `core/mission/distributed_router.py` `route()` method, the early-return path where `RoutingPolicy.REMOTE_PREFERRED` raises `NotImplementedError` (around line 304 in the current `phase45/transport` HEAD).
-- Plan reference: `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` §3 M6.4.B deliverable list.
-- Spec reference: `docs/107_PHASE_45_PERSISTENT_AUTONOMOUS_RUNTIME_SPECIFICATION.md` §4.4 + D-4 (CR-4) + D-5 (CR-4).
-
-**If architect says "pivot to M6.4.C stretch":**
-- Open a fresh branch off `phase45/transport` (so M6.4.B code-completion can land independently on `phase45/transport` later).
-- Plan reference: `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` §3 M6.4.C.
-- Per plan §3, M6.4.C is STRETCH — may be deferred if M6.4.B consumes the time budget.
-
-**If architect says "pivot to M6.1/2/3/5 work":**
-- Open a fresh branch off `wt/5a39ff05` (where M6.1.A already landed). Do NOT branch off `phase45/transport` — keep the M6.4 work stream clean.
-
 **If architect says "merge phase45/transport to main":**
-- The 7e53c69 commit is docs-only. The 1401b81 + 337ca64 commits are code (M6.4.A + M6.4.B.1 + M6.4.B.2). Per AGENTS.md, M6.4 sub-milestones freeze individually; M6.4.A freeze requires the M6.4.A milestone report + the architect's sign-off. The 1401b81 commit did NOT include the M6.4.A report (the report landed on `wt/5a39ff05` as `docs/reports/PHASE45_M6_4_A_REPORT.md` but was not lifted). Recover the report and walk through M6.4.A freeze before merge.
+- The 7-commit sub-stream is ready to merge: M6.4.A (`1401b81`) + M6.4.A report lift (`eb54911`) + M6.4.B.1 (`1401b81`) + M6.4.B.2 (`337ca64`) + M6.4 governance retrofit (`7e53c69`) + M6.4.B code-completion (`0e1b593`) + M6.4.C (`fff4daa`). All gates ✅.
+- Per AGENTS.md §10, before merge:
+  1. Refresh AGENTS.md §12 (Phase 45 row) to reflect the M6.4 sub-stream status. Test count on the branch: **2041 passed / 2 skipped / 0 failed**.
+  2. Refresh JARVIS_EXECUTIVE_DASHBOARD.md.
+  3. Run the full-suite regression on the merge result (locally: `pytest tests/ -q --tb=short -p no:cacheprovider`).
+  4. Use `--no-ff` to preserve the M6.4 sub-stream as a named branch in the merge commit (per `docs/44_GIT_WORKFLOW.md`).
+  5. Update FREEZE_LEDGER's "Updated" footer to the merge date; bump AGENTS.md §12 row 45 from "IN DEVELOPMENT" to a release-bound (e.g. "🟨 STAGED" or v0.10.0-prep, depending on whether FINAL gate passes).
+
+**If architect says "pivot to M6.1.B (MissionManager rehydration + kill-resume E2E)":**
+- Open a fresh branch off `wt/5a39ff05` (where M6.1.A already landed). Do NOT branch off `phase45/transport` — keep the M6.4 work stream clean. Per the plan §2 sequence, M6.1.B is the next required foundational sub-milestone.
+- The M6.4 work stays on `phase45/transport` until merge; M6.1.B progress in parallel on a separate branch.
+
+**If architect says "ship M6.4 to main AND start M6.1.B in parallel":**
+- M6.4 merge first (steps above), then open the M6.1.B branch off `main` (post-merge) so M6.1.B doesn't carry M6.4 work in its history.
+
+**If architect says "merge M6.4 + immediately pick up FINAL (v0.10.0 freeze gate)":**
+- The FINAL milestone per plan §3 is the v0.10.0 freeze gate — full quality gate + walkthrough + AGENTS.md §12 bump. After M6.4 merges, the only open sub-milestones would be M6.1.B, M6.2.A/B, M6.3.A/B, M6.5.A/B. The FINAL gate is held until ALL preceding milestones pass (per plan §8 STOP). So FINAL cannot be closed until at least the plan-§2 foundational milestones (M6.1.B, M6.3.A/B, M6.2.A/B, M6.5.A/B) also land. This is a longer-horizon plan.

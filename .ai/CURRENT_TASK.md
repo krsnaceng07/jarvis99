@@ -1,29 +1,25 @@
 # CURRENT TASK
 
-**Goal:** Phase 45 / M6.4 (Distributed Execution) on `phase45/transport`. Continue M6.4 work in spec'd order; address the M6.4.B code-completion gap (REMOTE_PREFERRED + WorkerRegistry task tracking) per `docs/108_PHASE_45_IMPLEMENTATION_PLAN.md` §3 M6.4.B deliverable list.
+**Goal:** Phase 45 / M6.4 (Distributed Execution) on `phase45/transport`. M6.4 sub-stream COMPLETE at `fff4daa` (7 commits: A + A report lift + B.1 + B.2 + governance + B code-completion + C). Ready to merge to `main` — awaiting architect approval per AGENTS.md §1 rank-5 → rank-2.
 
-**Files Allowed (M6.4.B code-completion, additive only):**
-- core/mission/distributed_router.py (MODIFY additive — REMOTE_PREFERRED behavior + idempotent route() + idempotent active_tasks)
-- core/mission/worker_registry.py (MODIFY additive — mark_task_started / mark_task_completed keyed on wave_run_id)
-- core/mission/transports/__init__.py (MODIFY additive — re-export envelope symbols if needed)
-- pyproject.toml (no new deps; fakeredis + lupa already pinned)
-- tests/test_distributed_router_remote_preferred.py (NEW ≥ 10 tests, per plan §3 M6.4.B)
-- docs/reports/PHASE45_M6_4_B_REPORT.md (NEW — milestone report per AGENTS.md §10)
+**Files Allowed (M6.4 sub-stream merge to `main`, additive only):**
+- `phase45/transport` branch → `main` (fast-forward or `--no-ff` merge per `docs/44_GIT_WORKFLOW.md`)
+- `AGENTS.md` §12 row 45 (refresh from "🔨 IN DEVELOPMENT on `phase45/transport`" to v0.10.0-prep / "🟨 STAGED" after merge)
+- `JARVIS_EXECUTIVE_DASHBOARD.md` (refresh)
+- `docs/107_PHASE_45_PERSISTENT_AUTONOMOUS_RUNTIME_SPECIFICATION.md` STATUS (FROZEN — unchanged, just bump the v1.2 FROZEN-amended note's test count reference if needed)
+- `CHANGELOG.md` (v0.10.0-prep entry per `docs/44_GIT_WORKFLOW.md`)
 
 **Files Forbidden:**
-- Frozen interface modules (see `docs/60_MASTER_INDEX.md` and the FREEZE_LEDGER)
-- `core/runtime/mission.py` and `core/runtime/mission_models.py` (FROZEN Phase 34 — additive columns only, never rename)
-- `docs/107_*.md` / `docs/108_*.md` (FROZEN spec/plan)
-- Anything that bypasses `DistributedRouter → MissionTransport Protocol` (A-1 invariant)
-- Anything that requires a fresh spec/plan amendment (would be CR-6; architect's call)
+- Any source code in `core/mission/`, `api/routes/distributed_pool.py`, `core/runtime/mission_models.py` (frozen by M6.4 contract; do not change in the merge commit)
+- `docs/107_*.md` / `docs/108_*.md` (FROZEN spec/plan; do not amend in the merge)
+- Any of the M6.4 milestone reports (already authored; do not re-write)
 
-**Success Criteria (M6.4.B closure):**
-- `DistributedRouter.route()` with `policy=REMOTE_PREFERRED` actually publishes the task to the chosen worker via `MissionTransport.publish`, no longer raises `NotImplementedError`.
-- `WorkerRegistry.mark_task_started(wave_run_id, ...)` / `mark_task_completed(wave_run_id, ...)` exist; idempotent on duplicate keys.
-- `active_tasks` accounting is idempotent under concurrent calls.
-- ≥ 10 new tests in `tests/test_distributed_router_remote_preferred.py`.
-- All 1985 existing tests still pass; zero regression.
-- ruff format + ruff check + mypy --strict clean on touched files.
-- `docs/reports/PHASE45_M6_4_B_REPORT.md` per AGENTS.md §10 format.
+**Success Criteria (M6.4 sub-stream merge):**
+- All 7 M6.4 commits on `phase45/transport` reach `main` (via fast-forward or `--no-ff` merge).
+- AGENTS.md §12 row 45 is refreshed to reflect the new state.
+- JARVIS_EXECUTIVE_DASHBOARD.md is refreshed.
+- CHANGELOG.md has a v0.10.0-prep entry referencing the M6.4 work.
+- Full-suite regression test passes on `main` post-merge: 2041 passed / 2 skipped / 0 failed.
+- No STOP conditions opened by the merge (per AGENTS.md §6).
 
-**Status:** Awaiting architect go/no-go on M6.4.B code-completion. Last completed: governance retrofit at `7e53c69`.
+**Status:** Awaiting architect approval to merge the M6.4 sub-stream to `main`.
